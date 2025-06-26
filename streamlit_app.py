@@ -193,6 +193,11 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
     """Generate workout plan using OpenAI API."""
     try:
+        # Debug: Show API key info (first 10 and last 4 characters for security)
+        if api_key:
+            key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else "Key too short"
+            st.info(f"🔑 Using API key: {key_preview} (Length: {len(api_key)} characters)")
+        
         # Create OpenAI client with the provided API key
         openai_client = OpenAI(api_key=api_key)
         
@@ -217,7 +222,35 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         return response.choices[0].message.content
         
     except Exception as e:
-        return f"Error generating workout plan: {str(e)}\n\nPlease check your OpenAI API key and try again."
+        error_msg = str(e)
+        
+        # Enhanced error handling with specific guidance
+        if "401" in error_msg or "invalid_api_key" in error_msg:
+            return f"""
+            🚫 **API Key Error Detected!**
+            
+            **Error Details:** {error_msg}
+            
+            **Common Solutions:**
+            1. **Check your API key format** in Streamlit Cloud secrets:
+               - Should be: `OPENAI_API_KEY = "sk-proj-your-full-key-here"`
+               - No extra spaces, quotes, or line breaks
+            
+            2. **Verify your API key is active:**
+               - Go to https://platform.openai.com/api-keys
+               - Make sure your key hasn't expired
+               - Check if you have billing set up
+            
+            3. **Copy the key carefully:**
+               - Select the entire key (they're very long!)
+               - Don't include any extra characters
+            
+            4. **Restart your Streamlit app** after updating secrets
+            
+            Need help? The key should start with `sk-proj-` and be about 164 characters long.
+            """
+        else:
+            return f"Error generating workout plan: {error_msg}\n\nPlease check your OpenAI API key and try again."
 
 # Streamlit App Title
 st.title("🏋️ AI Fitness Coach")
