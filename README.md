@@ -2,6 +2,9 @@
 
 An intelligent, personalized fitness and nutrition planning app powered by OpenAI GPT-4 and built with Streamlit.
 
+## 🌐 **Live Demo**
+Try the app live: **[AI Fitness Coach on Streamlit Cloud](https://share.streamlit.io/johnnygithubb/-ai-fitness-coach/main/streamlit_app.py)**
+
 ## 🚀 Features
 
 ### 🎯 Personalized Fitness Planning
@@ -46,22 +49,26 @@ An intelligent, personalized fitness and nutrition planning app powered by OpenA
    ```
 
 4. **Set up your OpenAI API key**
-   
+
+   **For Local Development:**
    Create a `.env` file in the project root:
    ```bash
    echo "OPENAI_API_KEY=your-api-key-here" > .env
    ```
    
-   Or manually create a `.env` file with:
-   ```
-   OPENAI_API_KEY=your-api-key-here
-   ```
-   
-   ⚠️ **Important**: Never commit your `.env` file to version control. It's already included in `.gitignore`.
+   **For Streamlit Cloud Deployment:**
+   1. Go to [share.streamlit.io](https://share.streamlit.io)
+   2. Find your deployed app
+   3. Click "⚙️ Settings" → "Secrets" tab
+   4. Add your secret in TOML format:
+      ```toml
+      OPENAI_API_KEY = "your-api-key-here"
+      ```
+   5. Save and restart your app
 
 5. **Run the app**
    ```bash
-   streamlit run app.py
+   streamlit run streamlit_app.py
    ```
 
 6. **Open your browser**
