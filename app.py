@@ -223,14 +223,8 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
 st.title("🏋️ AI Fitness Coach")
 st.markdown("Get your personalized workout plan powered by AI!")
 
-# API Key input (optional - for users who want to input their key directly)
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    api_key_input = st.text_input("OpenAI API Key (optional)", type="password", 
-                                  help="Enter your OpenAI API key or set OPENAI_API_KEY environment variable")
-
-# Get the API key from environment or user input
-current_api_key = api_key_input or os.getenv("OPENAI_API_KEY")
+# Get the API key from environment variables only
+current_api_key = os.getenv("OPENAI_API_KEY")
 
 unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
@@ -275,7 +269,7 @@ if submitted:
     if not name or not email or not age or not height or not weight:
         st.error("Please fill in all required fields (Name, Email, Age, Height, Weight)")
     elif not current_api_key:
-        st.error("Please provide an OpenAI API key either in the sidebar or as an environment variable.")
+        st.error("Please set your OpenAI API key in the .env file. Create a .env file in the project root with: OPENAI_API_KEY=your-api-key-here")
     else:
         # Prepare user data
         user_data = {

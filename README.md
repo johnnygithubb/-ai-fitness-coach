@@ -47,18 +47,17 @@ An intelligent, personalized fitness and nutrition planning app powered by OpenA
 
 4. **Set up your OpenAI API key**
    
-   **Option A: Environment Variable (Recommended)**
-   ```bash
-   export OPENAI_API_KEY="your-api-key-here"
-   ```
-   
-   **Option B: Create a .env file**
+   Create a `.env` file in the project root:
    ```bash
    echo "OPENAI_API_KEY=your-api-key-here" > .env
    ```
    
-   **Option C: Use the app's sidebar**
-   - Enter your API key directly in the app interface
+   Or manually create a `.env` file with:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   ```
+   
+   ⚠️ **Important**: Never commit your `.env` file to version control. It's already included in `.gitignore`.
 
 5. **Run the app**
    ```bash
