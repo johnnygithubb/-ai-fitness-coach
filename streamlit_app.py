@@ -184,6 +184,7 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     - Preferred Training Environment: {environment}
     - Training Style Preferences: {training_styles}
     - Diet Style: {user_data['diet']}
+    - Session Duration: {user_data['minutes']} minutes per workout
 
     LIMITATIONS & CONSIDERATIONS:
     - Allergies/Injuries: {user_data['issues'] if user_data['issues'] else 'None specified'}
@@ -194,20 +195,29 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 
     1. COMPLETE 7-DAY WORKOUT PLAN:
        - MANDATORY: Provide a full week (7 days) of workouts with specific training for each day
-       - IMPORTANT: Design all workouts based on the preferred training environment ({environment})
+       - CRITICAL: Design all workouts based on the preferred training environment ({environment})
          * If "Gym": Include gym equipment (barbells, dumbbells, machines, cables, etc.)
          * If "Home": Focus on bodyweight, resistance bands, and minimal equipment exercises
          * If "Both": Provide alternatives for both gym and home settings
+       - ESSENTIAL: Tailor the entire program to match the specified training style preferences ({training_styles})
+         * If "Bodybuilder (hypertrophy)": Focus on muscle isolation, higher volume, moderate weights, shorter rest
+         * If "Powerlifter (strength)": Emphasize compound movements, heavy weights, lower reps, longer rest
+         * If "CrossFit / functional fitness": Include varied movements, circuits, metabolic conditioning
+         * If "Science-based / periodized": Use evidence-based programming with planned progression
+         * If "Calisthenics / street workout": Focus on bodyweight progressions and skill development
+         * If "Endurance / hybrid": Combine strength training with cardiovascular conditioning
+         * If multiple styles selected: Blend approaches intelligently throughout the week
        - For each workout day, include:
          * Complete exercise list with EXACT sets, reps, and rest periods (e.g., "3 sets x 8-10 reps, 90 seconds rest")
          * Specific weight/intensity recommendations when applicable
          * Exercise alternatives based on environment preference
-         * Detailed warm-up routine (5-10 minutes)
+         * Training style-specific techniques and methods
+         * Detailed warm-up routine (5-10 minutes) tailored to the workout style
          * Cool-down and stretching routine (5-10 minutes)
-       - For rest days, include active recovery activities
-       - Weekly training split with specific muscle groups/focus for each day
-       - Progression guidelines over 4-8 weeks
-       - Exercise form cues and safety tips for each movement
+       - For rest days, include active recovery activities that complement the training style
+       - Weekly training split with specific muscle groups/focus for each day aligned with chosen style
+       - Progression guidelines over 4-8 weeks specific to the training methodology
+       - Exercise form cues and safety tips for each movement, emphasizing style-specific techniques
 
     2. COMPLETE 7-DAY NUTRITION PLAN:
        - MANDATORY: Provide a full week (7 days) of clean eating meal plans
@@ -305,10 +315,12 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 
     CRITICAL REQUIREMENTS:
     - You MUST provide a complete 7-day workout schedule with every single exercise, set, rep, and rest period specified
+    - You MUST tailor the entire workout program to match the specified training style preferences ({training_styles})
     - You MUST provide a complete 7-day meal plan with every meal and snack detailed with exact foods and portions
     - You MUST include a detailed 4-week progression plan with specific weekly adjustments and techniques
     - You MUST provide comprehensive lifestyle optimization covering sleep, stress, recovery, and social factors
     - You MUST include an extensive psychological mastery section with motivation, mindset, and behavioral strategies
+    - The training style preferences are PARAMOUNT - every workout should reflect the chosen methodology
     - Use the calculated nutrition targets as the foundation for all nutrition recommendations
     - Format the response with clear headers, bullet points, and practical actionable advice
     - Ensure the meal plans hit the daily calorie and macro targets within 5-10% accuracy
@@ -433,22 +445,20 @@ with st.form("intake"):
 
     goal     = st.selectbox("Primary goal", ["Lose fat", "Build muscle", "Re-comp", "General health"])
     level    = st.radio("Training experience", ["Beginner", "Intermediate", "Advanced"], horizontal=True)
+    activity = st.radio("Activity level", ["Sedentary", "Lightly active", "Moderately active", "Very active"], horizontal=True)
     days     = st.slider("Training days per week", 2, 7, 4)
+    minutes  = st.slider("Time per workout (minutes)", 20, 90, 45)
     environment = st.radio("Preferred training environment", ["Gym", "Home", "Both"], horizontal=True)
+    style    = st.multiselect(
+        "Training style preferences",
+        ["Bodybuilder (hypertrophy)", "Powerlifter (strength)",
+         "CrossFit / functional fitness", "Science-based / periodized",
+         "Calisthenics / street workout", "Endurance / hybrid", "Other"]
+    )
     diet     = st.selectbox("Diet style", ["Omnivore", "Vegetarian", "Vegan", "Keto", "None"])
     issues   = st.text_area("Allergies / injuries (optional)")
-
-    with st.expander("Advanced tweaks (optional)"):
-        activity = st.radio("Activity level", ["Sedentary", "Lightly active", "Moderately active", "Very active"])
-        minutes  = st.slider("Time per workout (minutes)", 20, 90, 45)
-        style    = st.multiselect(
-            "Describe your training style",
-            ["Bodybuilder (hypertrophy)", "Powerlifter (strength)",
-             "CrossFit / functional fitness", "Science-based / periodized",
-             "Calisthenics / street workout", "Endurance / hybrid", "Other"]
-        )
-        dislikes = st.text_input("Food dislikes")
-        medical  = st.text_area("Medical conditions / meds")
+    dislikes = st.text_input("Food dislikes (optional)")
+    medical  = st.text_area("Medical conditions / medications (optional)")
 
     submitted = st.form_submit_button("Generate my plan")
 
