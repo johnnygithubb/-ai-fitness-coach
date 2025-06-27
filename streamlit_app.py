@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 from typing import Dict, Any
 from dotenv import load_dotenv
+from st_paywall import add_auth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -335,6 +336,15 @@ st.markdown("""
 
 **Ready to revolutionize your fitness game?** Complete the assessment below and unlock your personalized FitKit toolkit instantly.
 """)
+
+# Add payment wall - this will handle subscription verification
+add_auth(
+    required=True,
+    show_redirect_button=True,
+    subscription_button_text="🚀 Get FitKit Pro Access",
+    button_color="#FF4B4B",
+    use_sidebar=False
+)
 
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
