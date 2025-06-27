@@ -1,6 +1,7 @@
 import streamlit as st
 from openai import OpenAI
 import os
+import re
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -11,6 +12,11 @@ load_dotenv()
 client = None
 
 # Paywall functions removed - now running in free mode for testing
+
+def validate_email(email):
+    """Validate email format using regex."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
 
 def get_api_key():
     """Get API key from Streamlit secrets or environment variables."""
@@ -159,7 +165,7 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     Create a comprehensive, personalized workout and nutrition plan based on the following user information:
 
     PERSONAL INFO:
-    - Name: {user_data['name']}
+    - Email: {user_data['email']}
     - Age: {user_data['age']}
     - Sex: {user_data['sex']}
     - Height: {user_data['height']} {'inches' if user_data['unit'] == 'Imperial' else 'cm'}
@@ -442,7 +448,7 @@ current_api_key, api_key_source = get_api_key()
 unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
 with st.form("intake"):
-    name  = st.text_input("Name")
+    email = st.text_input("Email (We won't share or sell your data)")
     age   = st.number_input("Age", 13, 80, step=1)
 
     sex   = st.radio("Sex", ["Male", "Female", "Other"], horizontal=True)
@@ -475,20 +481,36 @@ with st.form("intake"):
     issues   = st.text_area("Allergies / injuries (optional)")
     dislikes = st.text_input("Food dislikes (optional)")
     medical  = st.text_area("Medical conditions / medications (optional)")
+    
+    # Disclaimer box
+    st.markdown("---")
+    st.markdown("""
+    **⚠️ Important Disclaimer:**
+    
+    • **Results not guaranteed** - Individual results may vary based on adherence, genetics, and lifestyle factors
+    • **For educational purposes only** - This is not medical advice or professional training guidance
+    • **Consult professionals** - Always consult with a healthcare provider before starting any new exercise or nutrition program
+    • **Use at your own risk** - You assume full responsibility for your health and safety
+    • **Fair use policy** - This tool is for personal use only, not for commercial redistribution
+    
+    By proceeding, you acknowledge you've read and agree to these terms.
+    """)
 
     submitted = st.form_submit_button("Generate my plan")
 
 # Handle form submission
 if submitted:
     # Validate required fields
-    if not name or not age or not height or not weight:
-        st.error("Please fill in all required fields (Name, Age, Height, Weight)")
+    if not email or not age or not height or not weight:
+        st.error("Please fill in all required fields (Email, Age, Height, Weight)")
+    elif not validate_email(email):
+        st.error("Please enter a valid email address (e.g., user@example.com)")
     elif not current_api_key:
         st.error("🔑 **OpenAI API Key Required!** Please set your API key in Streamlit Cloud secrets. Go to your app settings → Secrets tab → Add: `OPENAI_API_KEY = \"your-api-key-here\"`")
     else:
         # Prepare user data
         user_data = {
-            'name': name,
+            'email': email,
             'age': age,
             'sex': sex,
             'height': height,
@@ -533,7 +555,7 @@ if submitted:
             st.download_button(
                 label="📥 Download Your Complete Plan",
                 data=workout_plan,
-                file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
+                file_name=f"{email.replace('@', '_').replace('.', '_')}_complete_fitness_plan.txt",
                 mime="text/plain"
             )
         
