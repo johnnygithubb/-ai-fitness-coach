@@ -301,7 +301,7 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     Create a comprehensive, personalized workout and nutrition plan based on the following user information:
 
     PERSONAL INFO:
-    - Email: {user_data['email']}
+    - Name: {user_data['name']}
     - Age: {user_data['age']}
     - Sex: {user_data['sex']}
     - Height: {user_data['height']} {'inches' if user_data['unit'] == 'Imperial' else 'cm'}
@@ -332,6 +332,14 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     - Allergies/Injuries: {user_data['issues'] if user_data['issues'] else 'None specified'}
     - Food Dislikes: {user_data['dislikes'] if user_data['dislikes'] else 'None specified'}
     - Medical Conditions: {user_data['medical'] if user_data['medical'] else 'None specified'}
+
+    CRITICAL: Start your response with a warm, personal welcome greeting that:
+    - Addresses {user_data['name']} by name
+    - Acknowledges their specific goal of {user_data['goal']}
+    - Mentions this plan was created specifically for them
+    - Briefly explains what their personalized plan includes
+    - Sets an encouraging, motivational tone
+    - Transitions smoothly into the detailed plan sections
 
     Please provide a detailed plan that includes:
 
@@ -584,7 +592,7 @@ current_api_key, api_key_source = get_api_key()
 unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
 with st.form("intake"):
-    email = st.text_input("Email (We won't share or sell your data)")
+    name = st.text_input("Name")
     age   = st.number_input("Age", 13, 80, step=1)
 
     sex   = st.radio("Sex", ["Male", "Female", "Other"], horizontal=True)
@@ -630,10 +638,8 @@ with st.form("intake"):
 # Handle form submission
 if submitted:
     # Validate required fields
-    if not email or not age or not height or not weight:
-        st.error("Please fill in all required fields (Email, Age, Height, Weight)")
-    elif not validate_email(email):
-        st.error("Please enter a valid email address (e.g., user@example.com)")
+    if not name or not age or not height or not weight:
+        st.error("Please fill in all required fields (Name, Age, Height, Weight)")
     elif not disclaimer_agreed:
         st.error("⚠️ Please agree to the disclaimer terms to continue")
     elif not current_api_key:
@@ -641,7 +647,7 @@ if submitted:
     else:
         # Prepare user data
         user_data = {
-            'email': email,
+            'name': name,
             'age': age,
             'sex': sex,
             'height': height,
@@ -672,8 +678,8 @@ if submitted:
         if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
             st.success("🎉 Your personalized FitKit is ready!")
             
-            # Send confirmation email
-            send_confirmation_email(email, user_data)
+            # Send confirmation email (disabled for now)
+            # send_confirmation_email(name, user_data)
         
         # Calculate nutrition data for display
         nutrition_data = calculate_target_calories_and_macros(user_data)
@@ -691,7 +697,7 @@ if submitted:
             st.download_button(
                 label="📥 Download Your Complete Plan",
                 data=workout_plan,
-                file_name=f"{email.replace('@', '_').replace('.', '_')}_complete_fitness_plan.txt",
+                file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
                 mime="text/plain",
                 type="primary"
             )
