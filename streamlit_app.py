@@ -277,7 +277,7 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
                 }
             ],
             max_completion_tokens=10000,
-            temperature=0.5
+            temperature=1
         )
         
         return response.choices[0].message.content
@@ -316,24 +316,24 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
 # Streamlit App Title
 st.title("💪 FitKit")
 st.markdown("""
-### Transform Your Body with AI-Powered Precision
+### Your Ultimate AI-Powered Fitness Transformation Toolkit
 
-**Stop guessing. Start achieving.** FitKit creates your completely personalized fitness and nutrition blueprint in minutes - not months of trial and error.
+**Unlock your potential. Maximize your results.** FitKit harnesses cutting-edge AI technology to deliver your personalized fitness and nutrition toolkit - designed specifically for your unique body, goals, and lifestyle.
 
-🎯 **What makes FitKit different?**
-- **Scientifically calculated** nutrition targets based on YOUR body and goals
-- **Complete 7-day workout plans** with exact sets, reps, and rest periods
-- **Full weekly meal plans** with precise portions to hit your macros
-- **Tailored to your equipment** - from bodyweight to full gym setups
-- **Accounts for your lifestyle** - injuries, diet preferences, time constraints
+🚀 **Why FitKit is the game-changer you need:**
+- **Smart AI algorithms** analyze your profile for maximum optimization
+- **Comprehensive workout toolkit** with progressive training methodologies
+- **Intelligent nutrition framework** customized to your metabolic profile
+- **Adaptive programming** that evolves with your environment and preferences
+- **Holistic lifestyle integration** accounting for your individual constraints
 
-✨ **Your results start today:**
-- Build muscle efficiently with optimized training splits
-- Lose fat sustainably with precise calorie deficits  
-- Save hours of research and meal planning
-- Get professional-grade programming for FREE
+💪 **Transform your approach:**
+- Accelerate muscle development with data-driven training protocols
+- Optimize body composition through precision nutrition strategies
+- Streamline your fitness journey with intelligent automation
+- Access elite-level programming powered by advanced AI
 
-**Ready to stop spinning your wheels?** Fill out the form below and get your personalized FitKit plan in under 2 minutes.
+**Ready to revolutionize your fitness game?** Complete the assessment below and unlock your personalized FitKit toolkit instantly.
 """)
 
 # Get the API key using centralized function
