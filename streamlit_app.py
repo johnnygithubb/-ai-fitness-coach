@@ -311,8 +311,9 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     - Primary Goal: {user_data['goal']}
     - Training Experience: {user_data['level']}
     - Training Days per Week: {user_data['days']}
-    - Workout Duration: {user_data['minutes']} minutes per session
     - Activity Level: {user_data['activity']}
+    - Add Cardio: {user_data['add_cardio']}
+    - Add Ab Circuit: {user_data['add_abs']}
 
     CALCULATED NUTRITION TARGETS:
     - BMR (Basal Metabolic Rate): {nutrition_data['bmr']} calories/day
@@ -326,7 +327,8 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     - Preferred Training Environment: {environment}
     - Training Style Preferences: {training_styles}
     - Diet Style: {user_data['diet']}
-    - Session Duration: {user_data['minutes']} minutes per workout
+    - Cardio Addition: {user_data['add_cardio']}
+    - Ab Circuit Addition: {user_data['add_abs']}
 
     LIMITATIONS & CONSIDERATIONS:
     - Allergies/Injuries: {user_data['issues'] if user_data['issues'] else 'None specified'}
@@ -359,10 +361,13 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
          * If multiple styles selected: Blend approaches intelligently throughout the week
        - For each workout day, include:
          * Complete exercise list with EXACT sets, reps, and rest periods (e.g., "3 sets x 8-10 reps, 90 seconds rest")
+         * Number of exercises should be based on user's experience level ({user_data['level']})
          * Specific weight/intensity recommendations when applicable
          * Exercise alternatives based on environment preference
          * Training style-specific techniques and methods
          * Detailed warm-up routine (5-10 minutes) tailored to the workout style
+         * CARDIO INTEGRATION: {"If user selected 'Yes' for cardio, add 10-30 minutes of cardio to each workout day based on their goal (" + user_data['goal'] + "). Fat loss goals get more cardio (20-30 min), muscle building gets less (10-15 min). Include specific cardio exercises and intensity." if user_data['add_cardio'] == 'Yes' else "No additional cardio requested."}
+         * AB CIRCUIT INTEGRATION: {"If user selected 'Yes' for ab circuit, add a 5-minute bodyweight ab routine to finish each workout. Include 4-5 ab exercises with specific sets/reps (e.g., planks, crunches, bicycle crunches, leg raises, mountain climbers)." if user_data['add_abs'] == 'Yes' else "No ab circuit requested."}
          * Cool-down and stretching routine (5-10 minutes)
        - For rest days, include active recovery activities that complement the training style
        - Weekly training split with specific muscle groups/focus for each day aligned with chosen style
@@ -613,7 +618,6 @@ with st.form("intake"):
     level    = st.radio("Training experience", ["Beginner", "Intermediate", "Advanced"], horizontal=True)
     activity = st.radio("Activity level", ["Sedentary", "Lightly active", "Moderately active", "Very active"], horizontal=True)
     days     = st.slider("Training days per week", 2, 7, 4)
-    minutes  = st.slider("Time per workout (minutes)", 20, 90, 45)
     environment = st.radio("Preferred training environment", ["Gym", "Home", "Both"], horizontal=True)
     style    = st.multiselect(
         "Training style preferences",
@@ -622,6 +626,17 @@ with st.form("intake"):
          "Calisthenics / street workout", "Endurance / hybrid", "Other"]
     )
     diet     = st.selectbox("Diet style", ["Omnivore", "Vegetarian", "Vegan", "Keto", "None"])
+    
+    # Cardio option
+    add_cardio = st.radio("Add cardio to routine?", ["No", "Yes"], horizontal=True)
+    if add_cardio == "Yes":
+        st.caption("⚠️ Will add 10-30 minutes of cardio to each workout based on your goal (increases difficulty and fatigue)")
+    
+    # Abs option  
+    add_abs = st.radio("Add ab circuit for 6-pack?", ["No", "Yes"], horizontal=True)
+    if add_abs == "Yes":
+        st.caption("⚠️ Will add 5-minute bodyweight ab routine to finish each workout (increases difficulty and fatigue)")
+    
     issues   = st.text_area("Allergies / injuries (optional)")
     dislikes = st.text_input("Food dislikes (optional)")
     medical  = st.text_area("Medical conditions / medications (optional)")
@@ -660,10 +675,11 @@ if submitted:
             'diet': diet,
             'issues': issues,
             'activity': activity,
-            'minutes': minutes,
             'style': style,
             'dislikes': dislikes,
-            'medical': medical
+            'medical': medical,
+            'add_cardio': add_cardio,
+            'add_abs': add_abs
         }
         
         # Show loading message for streaming
@@ -770,7 +786,8 @@ if submitted:
                 st.metric("Height", f"{height} {'in' if unit == 'Imperial' else 'cm'}")
                 st.metric("Weight", f"{weight} {'lbs' if unit == 'Imperial' else 'kg'}")
                 st.metric("Training Days", f"{days} per week")
-                st.metric("Session Length", f"{minutes} minutes")
+                st.metric("Add Cardio", add_cardio)
+                st.metric("Add Ab Circuit", add_abs)
             
             with col2:
                 st.write(f"**Primary Goal:** {goal}")
