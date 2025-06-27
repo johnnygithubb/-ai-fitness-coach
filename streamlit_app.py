@@ -10,91 +10,7 @@ load_dotenv()
 # Initialize client as None - will be created when needed
 client = None
 
-def check_payment_status():
-    """Simple paywall check - customize this based on your payment verification needs."""
-    # Check if user has paid via session state or URL parameters
-    
-    # Method 1: Check URL parameters (from Stripe redirect)
-    query_params = st.query_params
-    
-    # Debug: Show current URL parameters (remove in production)
-    if query_params:
-        st.sidebar.write("Debug - URL params:", dict(query_params))
-    
-    # Check for various success parameters that Stripe might send
-    success_indicators = [
-        "payment_success",
-        "success", 
-        "payment_intent",
-        "session_id"
-    ]
-    
-    for param in success_indicators:
-        if param in query_params:
-            st.session_state.paid_user = True
-            st.sidebar.success(f"Payment detected via {param}")
-            return True
-    
-    # Method 2: Check session state (persistent during session)
-    if st.session_state.get("paid_user", False):
-        return True
-    
-    # Method 3: Manual override for testing (remove in production)
-    if st.session_state.get("manual_override", False):
-        return True
-    
-    return False
-
-def show_paywall():
-    """Display the paywall with payment button."""
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        ### 🔒 Premium Access Required
-        
-        **Unlock your personalized FitKit toolkit!**
-        
-        Get instant access to:
-        ✅ Complete 7-day workout plans  
-        ✅ Personalized nutrition strategies  
-        ✅ AI-powered training optimization  
-        ✅ Professional-grade programming  
-        
-        **One-time payment • Instant access**
-        
-        *Click the button below to securely pay with Stripe. You'll be redirected back here after payment.*
-        """)
-        
-        # Payment button that redirects to Stripe
-        stripe_link = "https://buy.stripe.com/test_28EdRafeoe2SfeKbOd6AM0f"
-        
-        # Use st.link_button for direct redirect to Stripe
-        st.link_button(
-            "🚀 Get FitKit Pro Access", 
-            stripe_link, 
-            use_container_width=True,
-            type="primary"
-        )
-        
-        # Alternative: Direct link for users if button doesn't work
-        st.markdown(f"**Having trouble?** [Click here to pay directly]({stripe_link})")
-        
-        st.info("💡 **After payment:** You'll be redirected back to this page with full access!")
-        
-        # For testing purposes - remove in production
-        st.markdown("---")
-        st.caption("**For Testing Only:**")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("🧪 Test Access", use_container_width=True):
-                st.session_state.manual_override = True
-                st.rerun()
-        with col_b:
-            if st.button("✅ I Just Paid", use_container_width=True):
-                st.session_state.paid_user = True
-                st.rerun()
+# Paywall functions removed - now running in free mode for testing
 
 def get_api_key():
     """Get API key from Streamlit secrets or environment variables."""
@@ -422,14 +338,8 @@ st.markdown("""
 **Ready to revolutionize your fitness game?** Complete the assessment below and unlock your personalized FitKit toolkit instantly.
 """)
 
-# Check payment status
-if not check_payment_status():
-    show_paywall()
-    st.stop()  # Stop execution if user hasn't paid
-
-# Success message for paid users
-if st.session_state.get("paid_user") or st.session_state.get("manual_override"):
-    st.success("🎉 **Premium Access Activated!** Welcome to FitKit Pro")
+# Free access for testing - no paywall
+st.success("🚀 **FitKit is now FREE for testing!** Generate your personalized fitness plan below.")
 
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
