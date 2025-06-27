@@ -110,15 +110,41 @@ def send_confirmation_email(user_email, user_data):
         This email was sent because you generated a FitKit plan. We don't share or sell your data.
         """
         
-        # Configure email
-        mail_body = mailer.set_mail_from("noreply@fitkit.app", "FitKit")
-        mail_body = mailer.set_mail_to([{"email": user_email}])
-        mail_body = mailer.set_subject(subject)
-        mail_body = mailer.set_html_content(html_content)
-        mail_body = mailer.set_plaintext_content(text_content)
+        # Define an empty dict to populate with mail values
+        mail_body = {}
+        
+        # Configure sender
+        mail_from = {
+            "name": "FITKIT",
+            "email": "test-r83ql3pnez0gzw1j@trial-3zxk54v0qjvg7qrn.mlsender.net"
+        }
+        
+        # Configure recipient
+        recipients = [
+            {
+                "name": "FitKit User",
+                "email": user_email
+            }
+        ]
+        
+        # Configure reply-to
+        reply_to = [
+            {
+                "name": "FITKIT Support",
+                "email": "test-r83ql3pnez0gzw1j@trial-3zxk54v0qjvg7qrn.mlsender.net"
+            }
+        ]
+        
+        # Set mail properties
+        mailer.set_mail_from(mail_from, mail_body)
+        mailer.set_mail_to(recipients, mail_body)
+        mailer.set_subject(subject, mail_body)
+        mailer.set_html_content(html_content, mail_body)
+        mailer.set_plaintext_content(text_content, mail_body)
+        mailer.set_reply_to(reply_to, mail_body)
         
         # Send email
-        response = mailer.send()
+        response = mailer.send(mail_body)
         
         if response.status_code == 202:
             st.success("📧 Confirmation email sent! Check your inbox.")
@@ -492,8 +518,8 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
                 full_response += chunk.choices[0].delta.content
                 response_placeholder.markdown(full_response + "▌")  # Show cursor while typing
         
-        # Remove cursor and show final response
-        response_placeholder.markdown(full_response)
+        # Clear the streaming placeholder when done
+        response_placeholder.empty()
         return full_response
         
     except Exception as e:
@@ -695,13 +721,16 @@ if submitted:
         with tab1:
             st.markdown("### Your AI-Generated Workout & Nutrition Plan")
             st.markdown(workout_plan)
-            
-            # Add download button
+        
+        # Show download button after plan is complete
+        if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
+            st.markdown("---")
             st.download_button(
                 label="📥 Download Your Complete Plan",
                 data=workout_plan,
                 file_name=f"{email.replace('@', '_').replace('.', '_')}_complete_fitness_plan.txt",
-                mime="text/plain"
+                mime="text/plain",
+                type="primary"
             )
         
         with tab2:
