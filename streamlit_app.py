@@ -190,19 +190,37 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 
     Please provide a detailed plan that includes:
 
-    1. WORKOUT PLAN:
-       - Weekly training split with specific days
-       - Detailed exercises with sets, reps, and rest periods
+    1. COMPLETE 7-DAY WORKOUT PLAN:
+       - MANDATORY: Provide a full week (7 days) of workouts with specific training for each day
+       - For each workout day, include:
+         * Complete exercise list with EXACT sets, reps, and rest periods (e.g., "3 sets x 8-10 reps, 90 seconds rest")
+         * Specific weight/intensity recommendations when applicable
+         * Detailed warm-up routine (5-10 minutes)
+         * Cool-down and stretching routine (5-10 minutes)
+       - For rest days, include active recovery activities
+       - Weekly training split with specific muscle groups/focus for each day
        - Progression guidelines over 4-8 weeks
-       - Warm-up and cool-down routines
+       - Exercise form cues and safety tips for each movement
 
-    2. COMPREHENSIVE NUTRITION PLAN:
-       - Meal timing strategy (pre/post workout, daily schedule)
-       - Specific food recommendations for each macro target
-       - Sample meal plans for 3-5 days aligned with their diet style
-       - Hydration guidelines
-       - Supplement recommendations (if appropriate)
+    2. COMPLETE 7-DAY NUTRITION PLAN:
+       - MANDATORY: Provide a full week (7 days) of clean eating meal plans
+       - For each day, include:
+         * Breakfast with exact foods and portions to hit macro targets
+         * Mid-morning snack (if needed)
+         * Lunch with exact foods and portions
+         * Afternoon snack (if needed)
+         * Dinner with exact foods and portions
+         * Evening snack (if needed for goals)
+         * Pre/post workout nutrition for training days
+       - Each meal should specify:
+         * Exact food items and quantities
+         * Approximate calories and macros (protein/carbs/fats)
+         * Preparation method when relevant
+       - Meal timing strategy aligned with workout schedule
+       - Hydration guidelines throughout each day
+       - Supplement recommendations with timing
        - Meal prep tips and grocery list suggestions
+       - Clean eating focus with whole, unprocessed foods
 
     3. LIFESTYLE INTEGRATION:
        - Recovery and sleep recommendations
@@ -216,7 +234,12 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
        - Warning signs to watch for
        - When to rest or deload
 
-    Use the calculated nutrition targets as the foundation for all nutrition recommendations. Format the response with clear headers, bullet points, and practical actionable advice.
+    CRITICAL REQUIREMENTS:
+    - You MUST provide a complete 7-day workout schedule with every single exercise, set, rep, and rest period specified
+    - You MUST provide a complete 7-day meal plan with every meal and snack detailed with exact foods and portions
+    - Use the calculated nutrition targets as the foundation for all nutrition recommendations
+    - Format the response with clear headers, bullet points, and practical actionable advice
+    - Ensure the meal plans hit the daily calorie and macro targets within 5-10% accuracy
     """
     
     return prompt
@@ -237,7 +260,7 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         prompt = create_workout_prompt(user_data)
         
         response = openai_client.chat.completions.create(
-            model="gpt-4",  # or "gpt-3.5-turbo" for faster/cheaper option
+            model="o4-mini-2025-04-16",  # or "gpt-3.5-turbo" for faster/cheaper option
             messages=[
                 {
                     "role": "system", 
@@ -248,8 +271,8 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
                     "content": prompt
                 }
             ],
-            max_tokens=2000,
-            temperature=0.7
+            max_tokens=10000,
+            temperature=0.5
         )
         
         return response.choices[0].message.content
@@ -286,39 +309,30 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
             return f"Error generating workout plan: {error_msg}\n\nPlease check your OpenAI API key and try again."
 
 # Streamlit App Title
-st.title("🏋️ AI Fitness Coach")
-st.markdown("Get your personalized workout plan powered by AI!")
+st.title("💪 FitKit")
+st.markdown("""
+### Transform Your Body with AI-Powered Precision
+
+**Stop guessing. Start achieving.** FitKit creates your completely personalized fitness and nutrition blueprint in minutes - not months of trial and error.
+
+🎯 **What makes FitKit different?**
+- **Scientifically calculated** nutrition targets based on YOUR body and goals
+- **Complete 7-day workout plans** with exact sets, reps, and rest periods
+- **Full weekly meal plans** with precise portions to hit your macros
+- **Tailored to your equipment** - from bodyweight to full gym setups
+- **Accounts for your lifestyle** - injuries, diet preferences, time constraints
+
+✨ **Your results start today:**
+- Build muscle efficiently with optimized training splits
+- Lose fat sustainably with precise calorie deficits  
+- Save hours of research and meal planning
+- Get professional-grade programming for FREE
+
+**Ready to stop spinning your wheels?** Fill out the form below and get your personalized FitKit plan in under 2 minutes.
+""")
 
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
-
-# Debug info
-with st.sidebar:
-    st.markdown("### 🔧 Debug Info")
-    
-    if current_api_key:
-        st.success(f"🔑 **API Key Status:** Found")
-        st.info(f"📍 **Source:** {api_key_source}")
-        # Show partial key for verification
-        if len(current_api_key) > 14:
-            key_preview = f"{current_api_key[:10]}...{current_api_key[-4:]}"
-            st.code(f"Key preview: {key_preview}")
-            st.caption(f"Length: {len(current_api_key)} characters")
-    else:
-        st.error(f"❌ **API Key Status:** Not found")
-        st.warning(f"📍 **Last checked:** {api_key_source}")
-    
-    # Streamlit secrets debugging
-    st.markdown("#### 🔍 Secrets Debug")
-    try:
-        if hasattr(st, 'secrets'):
-            available_secrets = list(st.secrets.keys()) if hasattr(st.secrets, 'keys') else "Cannot list keys"
-            st.write(f"**Available secrets:** {available_secrets}")
-            st.write(f"**Has OPENAI_API_KEY:** {'OPENAI_API_KEY' in st.secrets}")
-        else:
-            st.write("**Streamlit secrets:** Not available")
-    except Exception as e:
-        st.write(f"**Secrets error:** {str(e)}")
 
 unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
@@ -391,11 +405,6 @@ if submitted:
         with st.spinner("🤖 AI is creating your personalized workout plan..."):
             # Get fresh API key for generation
             generation_api_key, generation_source = get_api_key()
-            
-            st.info(f"🔄 Generating plan with API key from: **{generation_source}**")
-            if generation_api_key and len(generation_api_key) > 14:
-                key_preview = f"{generation_api_key[:10]}...{generation_api_key[-4:]}"
-                st.info(f"🔑 Using key: {key_preview} (Length: {len(generation_api_key)})")
             
             workout_plan = generate_workout_plan(user_data, generation_api_key)
         
