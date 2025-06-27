@@ -4,6 +4,7 @@ import os
 import re
 from typing import Dict, Any
 from dotenv import load_dotenv
+from mailersend import emails
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,6 +18,118 @@ def validate_email(email):
     """Validate email format using regex."""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
+
+def send_confirmation_email(user_email, user_data):
+    """Send confirmation email using MailerSend."""
+    try:
+        # Get MailerSend API key from secrets
+        api_key = st.secrets.get("MAILERSEND_API_KEY", os.getenv("MAILERSEND_API_KEY"))
+        if not api_key:
+            st.warning("⚠️ Email service not configured. Plan generated successfully!")
+            return False
+        
+        # Initialize MailerSend
+        mailer = emails.NewEmail(api_key)
+        
+        # Email content
+        subject = "🎉 Your FitKit Plan is Ready!"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #4CAF50; text-align: center;">⚡️ FitKit</h1>
+                
+                <h2 style="color: #333;">Your Personal Training Blueprint is Ready!</h2>
+                
+                <p>Hey there!</p>
+                
+                <p>Your personalized FitKit plan has been successfully generated! Here's what you got:</p>
+                
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #4CAF50;">Your Plan Details:</h3>
+                    <ul style="margin-bottom: 0;">
+                        <li><strong>Goal:</strong> {user_data.get('goal', 'Not specified')}</li>
+                        <li><strong>Training Days:</strong> {user_data.get('days', 'Not specified')} per week</li>
+                        <li><strong>Environment:</strong> {user_data.get('environment', 'Not specified')}</li>
+                        <li><strong>Experience Level:</strong> {user_data.get('level', 'Not specified')}</li>
+                    </ul>
+                </div>
+                
+                <p><strong>What's included in your plan:</strong></p>
+                <ul>
+                    <li>🏋️ Complete 7-day workout schedule</li>
+                    <li>🍎 Personalized nutrition plan</li>
+                    <li>📈 4-week progression system</li>
+                    <li>🧠 Psychological mastery tips</li>
+                    <li>💤 Lifestyle optimization guide</li>
+                </ul>
+                
+                <p>Remember to save your plan from the app - you have lifetime access to your personalized FitKit!</p>
+                
+                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <p style="margin: 0;"><strong>⚠️ Important:</strong> Always consult with a healthcare provider before starting any new exercise or nutrition program.</p>
+                </div>
+                
+                <p>Ready to transform? Let's get moving! 💪</p>
+                
+                <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                    This email was sent because you generated a FitKit plan. We don't share or sell your data.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        FitKit - Your Personal Training Blueprint is Ready!
+        
+        Hey there!
+        
+        Your personalized FitKit plan has been successfully generated!
+        
+        Your Plan Details:
+        - Goal: {user_data.get('goal', 'Not specified')}
+        - Training Days: {user_data.get('days', 'Not specified')} per week
+        - Environment: {user_data.get('environment', 'Not specified')}
+        - Experience Level: {user_data.get('level', 'Not specified')}
+        
+        What's included:
+        - Complete 7-day workout schedule
+        - Personalized nutrition plan
+        - 4-week progression system
+        - Psychological mastery tips
+        - Lifestyle optimization guide
+        
+        Remember to save your plan from the app - you have lifetime access!
+        
+        Important: Always consult with a healthcare provider before starting any new exercise or nutrition program.
+        
+        Ready to transform? Let's get moving!
+        
+        This email was sent because you generated a FitKit plan. We don't share or sell your data.
+        """
+        
+        # Configure email
+        mail_body = mailer.set_mail_from("noreply@fitkit.app", "FitKit")
+        mail_body = mailer.set_mail_to([{"email": user_email}])
+        mail_body = mailer.set_subject(subject)
+        mail_body = mailer.set_html_content(html_content)
+        mail_body = mailer.set_plaintext_content(text_content)
+        
+        # Send email
+        response = mailer.send()
+        
+        if response.status_code == 202:
+            st.success("📧 Confirmation email sent! Check your inbox.")
+            return True
+        else:
+            st.warning("⚠️ Email service temporarily unavailable. Plan generated successfully!")
+            return False
+            
+    except Exception as e:
+        st.warning(f"⚠️ Could not send confirmation email. Plan generated successfully!")
+        return False
 
 def get_api_key():
     """Get API key from Streamlit secrets or environment variables."""
@@ -482,19 +595,48 @@ with st.form("intake"):
     dislikes = st.text_input("Food dislikes (optional)")
     medical  = st.text_area("Medical conditions / medications (optional)")
     
-    # Disclaimer box
+    # Disclaimer box with improved typography
     st.markdown("---")
-    st.markdown("""
-    **⚠️ Important Disclaimer:**
-    
-    • **Results not guaranteed** - Individual results may vary based on adherence, genetics, and lifestyle factors
-    • **For educational purposes only** - This is not medical advice or professional training guidance
-    • **Consult professionals** - Always consult with a healthcare provider before starting any new exercise or nutrition program
-    • **Use at your own risk** - You assume full responsibility for your health and safety
-    • **Fair use policy** - This tool is for personal use only, not for commercial redistribution
-    
-    By proceeding, you acknowledge you've read and agree to these terms.
-    """)
+    with st.container():
+        st.markdown("""
+        <div style="
+            background-color: #f8f9fa;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.6;
+        ">
+            <h4 style="color: #856404; margin-top: 0; margin-bottom: 15px;">
+                ⚠️ Important Disclaimer
+            </h4>
+            
+            <p style="margin-bottom: 12px;">
+                <strong>Results not guaranteed:</strong> Individual results may vary based on adherence, genetics, and lifestyle factors.
+            </p>
+            
+            <p style="margin-bottom: 12px;">
+                <strong>Educational purposes only:</strong> This is not medical advice or professional training guidance.
+            </p>
+            
+            <p style="margin-bottom: 12px;">
+                <strong>Consult professionals:</strong> Always consult with a healthcare provider before starting any new exercise or nutrition program.
+            </p>
+            
+            <p style="margin-bottom: 12px;">
+                <strong>Use at your own risk:</strong> You assume full responsibility for your health and safety.
+            </p>
+            
+            <p style="margin-bottom: 15px;">
+                <strong>Fair use policy:</strong> This tool is for personal use only, not for commercial redistribution.
+            </p>
+            
+            <p style="margin-bottom: 0; font-style: italic; color: #6c757d;">
+                By proceeding, you acknowledge you've read and agree to these terms.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     submitted = st.form_submit_button("Generate my plan")
 
@@ -540,6 +682,9 @@ if submitted:
         # Display success message after streaming is complete
         if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
             st.success("🎉 Your personalized FitKit is ready!")
+            
+            # Send confirmation email
+            send_confirmation_email(email, user_data)
         
         # Calculate nutrition data for display
         nutrition_data = calculate_target_calories_and_macros(user_data)
