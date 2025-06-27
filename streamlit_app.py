@@ -25,7 +25,6 @@ def send_confirmation_email(user_email, user_data):
         # Get MailerSend API key from secrets
         api_key = st.secrets.get("MAILERSEND_API_KEY", os.getenv("MAILERSEND_API_KEY"))
         if not api_key:
-            st.warning("⚠️ Email service not configured. Plan generated successfully!")
             return False
         
         # Initialize MailerSend
@@ -150,11 +149,9 @@ def send_confirmation_email(user_email, user_data):
             st.success("📧 Confirmation email sent! Check your inbox.")
             return True
         else:
-            st.warning("⚠️ Email service temporarily unavailable. Plan generated successfully!")
             return False
             
     except Exception as e:
-        st.warning(f"⚠️ Could not send confirmation email. Plan generated successfully!")
         return False
 
 def get_api_key():
