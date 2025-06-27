@@ -229,24 +229,91 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
        - Meal prep tips and grocery list suggestions
        - Clean eating focus with whole, unprocessed foods
 
-    3. LIFESTYLE INTEGRATION:
-       - Recovery and sleep recommendations
-       - Stress management tips
-       - Progress tracking methods
-       - Modifications for busy days
-       - Long-term sustainability strategies
+    3. COMPREHENSIVE PROGRESSION SYSTEM:
+       - MANDATORY: Provide detailed 4-week progression plan with specific weekly adjustments
+       - Week 1-2: Foundation phase with exact rep/weight increases
+       - Week 3-4: Intensification phase with advanced techniques
+       - Progressive overload strategies (weight, reps, sets, tempo, rest periods)
+       - Deload week planning and implementation
+       - How to transition to intermediate/advanced programming
+       - Plateau-breaking techniques and troubleshooting
+       - Performance benchmarks and testing protocols
+       - Auto-regulation methods for adjusting intensity based on daily readiness
 
-    4. SAFETY & MODIFICATIONS:
+    4. COMPLETE LIFESTYLE OPTIMIZATION:
+       - MANDATORY: Comprehensive lifestyle integration covering all aspects of health
+       - Sleep optimization: 
+         * Ideal sleep duration and timing for recovery
+         * Sleep hygiene protocols and bedroom environment setup
+         * Pre-sleep routines and supplement timing
+         * How to optimize sleep for workout recovery
+       - Stress management mastery:
+         * Daily stress reduction techniques (breathing, meditation, journaling)
+         * Workout stress vs life stress management
+         * Cortisol optimization strategies
+         * Time management for consistent training
+       - Recovery protocols:
+         * Active recovery activities for rest days
+         * Post-workout recovery routines
+         * Weekly recovery assessments
+         * Mobility and flexibility programming
+       - Social and environmental factors:
+         * How to maintain consistency during travel
+         * Social eating and training strategies
+         * Creating supportive environments
+         * Meal prep and planning systems
+       - Energy and productivity optimization:
+         * Pre-workout nutrition timing and choices
+         * Post-workout recovery nutrition
+         * Daily energy management around training
+         * Supplement timing for performance and recovery
+
+    5. PSYCHOLOGICAL MASTERY & MINDSET:
+       - MANDATORY: Comprehensive psychological framework for long-term success
+       - Motivation and habit formation:
+         * Science-based habit stacking techniques
+         * Intrinsic vs extrinsic motivation strategies
+         * Building identity-based habits ("I am someone who...")
+         * Overcoming motivation dips and maintaining consistency
+       - Goal setting and achievement psychology:
+         * SMART goal framework with fitness-specific applications
+         * Process goals vs outcome goals
+         * Celebrating small wins and milestone rewards
+         * Vision boarding and long-term goal visualization
+       - Mental resilience and confidence building:
+         * Overcoming gym intimidation and social anxiety
+         * Building body confidence throughout the transformation
+         * Dealing with plateaus and temporary setbacks
+         * Positive self-talk and internal dialogue management
+       - Behavioral psychology applications:
+         * Understanding your personal triggers and patterns
+         * Environmental design for automatic healthy choices
+         * Social accountability and support system building
+         * Cognitive reframing for challenges and obstacles
+       - Performance psychology:
+         * Pre-workout mental preparation routines
+         * Mind-muscle connection techniques
+         * Visualization for better form and performance
+         * Managing perfectionism and all-or-nothing thinking
+
+    6. SAFETY & MODIFICATIONS:
        - Exercise modifications for any mentioned limitations
        - Warning signs to watch for
        - When to rest or deload
+       - Injury prevention strategies
+       - Form cues and safety protocols
 
     CRITICAL REQUIREMENTS:
     - You MUST provide a complete 7-day workout schedule with every single exercise, set, rep, and rest period specified
     - You MUST provide a complete 7-day meal plan with every meal and snack detailed with exact foods and portions
+    - You MUST include a detailed 4-week progression plan with specific weekly adjustments and techniques
+    - You MUST provide comprehensive lifestyle optimization covering sleep, stress, recovery, and social factors
+    - You MUST include an extensive psychological mastery section with motivation, mindset, and behavioral strategies
     - Use the calculated nutrition targets as the foundation for all nutrition recommendations
     - Format the response with clear headers, bullet points, and practical actionable advice
     - Ensure the meal plans hit the daily calorie and macro targets within 5-10% accuracy
+    - Make every section comprehensive and actionable - this should be a complete transformation guide
+    - Include specific techniques, protocols, and step-by-step instructions for maximum value
     """
     
     return prompt
@@ -271,7 +338,7 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are a certified personal trainer and nutritionist with expertise in creating safe, effective, and personalized workout plans. Always prioritize safety and proper form."
+                    "content": "You are an elite fitness and transformation coach with expertise in exercise science, nutrition, psychology, and behavioral change. You combine the knowledge of a certified personal trainer, sports nutritionist, sports psychologist, and lifestyle coach. Your goal is to create comprehensive, life-changing transformation guides that address every aspect of health and fitness. Always prioritize safety, evidence-based practices, and long-term sustainability while delivering maximum value and actionable insights."
                 },
                 {
                     "role": "user", 
