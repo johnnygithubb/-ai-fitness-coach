@@ -593,21 +593,21 @@ unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
 with st.form("intake"):
     name = st.text_input("Name")
-    age   = st.number_input("Age", 13, 80, step=1)
+    age   = st.number_input("Age", min_value=13, max_value=80, step=1, value=None, placeholder="Enter your age")
 
     sex   = st.radio("Sex", ["Male", "Female", "Other"], horizontal=True)
 
     if unit == "Imperial":
         col1, col2 = st.columns(2)
         with col1:
-            feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
+            feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=None, step=1, placeholder="e.g. 5")
         with col2:
-            inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
-        height = feet * 12 + inches  # Convert to total inches
-        weight = st.number_input("Weight (lbs)", min_value=50, max_value=500, value=150, step=1)
+            inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=None, step=1, placeholder="e.g. 8")
+        height = (feet or 0) * 12 + (inches or 0)  # Convert to total inches, handle None values
+        weight = st.number_input("Weight (lbs)", min_value=50, max_value=500, value=None, step=1, placeholder="e.g. 150")
     else:
-        height = st.number_input("Height (cm)", min_value=120, max_value=250, value=170, step=1)
-        weight = st.number_input("Weight (kg)", min_value=30, max_value=200, value=70, step=1)
+        height = st.number_input("Height (cm)", min_value=120, max_value=250, value=None, step=1, placeholder="e.g. 170")
+        weight = st.number_input("Weight (kg)", min_value=30, max_value=200, value=None, step=1, placeholder="e.g. 70")
 
     goal     = st.selectbox("Primary goal", ["Lose fat", "Build muscle", "Re-comp", "General health"])
     level    = st.radio("Training experience", ["Beginner", "Intermediate", "Advanced"], horizontal=True)
@@ -638,7 +638,7 @@ with st.form("intake"):
 # Handle form submission
 if submitted:
     # Validate required fields
-    if not name or not age or not height or not weight:
+    if not name or age is None or height is None or height == 0 or weight is None:
         st.error("Please fill in all required fields (Name, Age, Height, Weight)")
     elif not disclaimer_agreed:
         st.error("⚠️ Please agree to the disclaimer terms to continue")
