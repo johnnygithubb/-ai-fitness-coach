@@ -345,8 +345,13 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         
         prompt = create_workout_prompt(user_data)
         
-        response = openai_client.chat.completions.create(
-            model="o4-mini-2025-04-16",  # or "gpt-3.5-turbo" for faster/cheaper option
+        # Create a placeholder for streaming content
+        response_placeholder = st.empty()
+        full_response = ""
+        
+        # Stream the response for faster user experience
+        stream = openai_client.chat.completions.create(
+            model="o3-mini-2025-01-31",  # Using o3-mini for faster streaming completions
             messages=[
                 {
                     "role": "system", 
@@ -358,10 +363,19 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
                 }
             ],
             max_completion_tokens=10000,
-            temperature=1
+            temperature=1,
+            stream=True
         )
         
-        return response.choices[0].message.content
+        # Stream the response in real-time
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                full_response += chunk.choices[0].delta.content
+                response_placeholder.markdown(full_response + "▌")  # Show cursor while typing
+        
+        # Remove cursor and show final response
+        response_placeholder.markdown(full_response)
+        return full_response
         
     except Exception as e:
         error_msg = str(e)
@@ -395,26 +409,28 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
             return f"Error generating workout plan: {error_msg}\n\nPlease check your OpenAI API key and try again."
 
 # Streamlit App Title
-st.title("💪 FitKit")
+st.title("⚡️ FitKit")
 st.markdown("""
-### Your Ultimate AI-Powered Fitness Transformation Toolkit
+**— your personal AI training blueprint.**
 
-**Unlock your potential. Maximize your results.** FitKit harnesses cutting-edge AI technology to deliver your personalized fitness and nutrition toolkit - designed specifically for your unique body, goals, and lifestyle.
+Drop your info, grab a plan, keep it forever. Simple.
 
-🚀 **Why FitKit is the game-changer you need:**
-- **Smart AI algorithms** analyze your profile for maximum optimization
-- **Comprehensive workout toolkit** with progressive training methodologies
-- **Intelligent nutrition framework** customized to your metabolic profile
-- **Adaptive programming** that evolves with your environment and preferences
-- **Holistic lifestyle integration** accounting for your individual constraints
+⸻
 
-💪 **Transform your approach:**
-- Accelerate muscle development with data-driven training protocols
-- Optimize body composition through precision nutrition strategies
-- Streamline your fitness journey with intelligent automation
-- Access elite-level programming powered by advanced AI
+**What it does:**
+- 🧠 Reads your stats and builds workouts + meals around you
+- 🔄 Updates as you progress—no more guess-work
+- ⏱ Cuts planning time to zero so you can focus on the grind
+- 💾 One download = lifetime access
 
-**Ready to revolutionize your fitness game?** Complete the assessment below and unlock your personalized FitKit toolkit instantly.
+⸻
+
+**Why tap in:**
+- Routines tailored for your goals, not a one-size list
+- Nutrition guidance that matches the plan
+- No subscriptions, no bloated apps—just your kit, on demand
+
+**Hit the quick quiz, claim your FitKit, and get moving.**
 """)
 
 # Free access for testing - no paywall
@@ -491,15 +507,17 @@ if submitted:
             'medical': medical
         }
         
-        # Show loading spinner
-        with st.spinner("🤖 AI is creating your personalized workout plan..."):
-            # Get fresh API key for generation
-            generation_api_key, generation_source = get_api_key()
-            
-            workout_plan = generate_workout_plan(user_data, generation_api_key)
+        # Show loading message for streaming
+        st.info("🤖 **AI is creating your personalized workout plan...** (streaming live)")
         
-        # Display the generated plan
-        st.success("🎉 Your personalized workout plan is ready!")
+        # Get fresh API key for generation
+        generation_api_key, generation_source = get_api_key()
+        
+        workout_plan = generate_workout_plan(user_data, generation_api_key)
+        
+        # Display success message after streaming is complete
+        if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
+            st.success("🎉 Your personalized FitKit is ready!")
         
         # Calculate nutrition data for display
         nutrition_data = calculate_target_calories_and_macros(user_data)
