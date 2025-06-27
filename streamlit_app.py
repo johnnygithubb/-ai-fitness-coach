@@ -10,6 +10,37 @@ load_dotenv()
 # Initialize client as None - will be created when needed
 client = None
 
+def get_api_key():
+    """Get API key from Streamlit secrets or environment variables."""
+    api_key = None
+    source = "unknown"
+    
+    # Try Streamlit secrets first (multiple methods)
+    try:
+        # Method 1: Direct access
+        if hasattr(st, 'secrets') and "OPENAI_API_KEY" in st.secrets:
+            api_key = st.secrets["OPENAI_API_KEY"]
+            source = "Streamlit secrets (direct)"
+        # Method 2: Try get method
+        elif hasattr(st, 'secrets'):
+            api_key = st.secrets.get("OPENAI_API_KEY")
+            if api_key:
+                source = "Streamlit secrets (get method)"
+            else:
+                raise KeyError("Not found in secrets")
+        else:
+            raise KeyError("Streamlit secrets not available")
+            
+    except (KeyError, FileNotFoundError, AttributeError) as e:
+        # Fall back to environment variables
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            source = "Environment variable (.env)"
+        else:
+            source = f"Not found (secrets error: {str(e)})"
+    
+    return api_key, source
+
 def calculate_bmr(weight: float, height: float, age: int, sex: str, unit: str) -> float:
     """Calculate Basal Metabolic Rate using Mifflin-St Jeor Equation."""
     # Convert to metric if needed
@@ -193,13 +224,15 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
     """Generate workout plan using OpenAI API."""
     try:
-        # Debug: Show API key info (first 10 and last 4 characters for security)
-        if api_key:
-            key_preview = f"{api_key[:10]}...{api_key[-4:]}" if len(api_key) > 14 else "Key too short"
-            st.info(f"🔑 Using API key: {key_preview} (Length: {len(api_key)} characters)")
+        # Validate API key before using
+        if not api_key:
+            return "❌ No API key provided to generation function"
+        
+        if len(api_key) < 50:  # Basic length check
+            return f"❌ API key too short: {len(api_key)} characters (expected ~164)"
         
         # Create OpenAI client with the provided API key
-        openai_client = OpenAI(api_key=api_key)
+        openai_client = OpenAI(api_key=api_key.strip())  # Strip any whitespace
         
         prompt = create_workout_prompt(user_data)
         
@@ -256,33 +289,8 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
 st.title("🏋️ AI Fitness Coach")
 st.markdown("Get your personalized workout plan powered by AI!")
 
-# Get the API key from Streamlit secrets or environment variables
-current_api_key = None
-api_key_source = "unknown"
-
-# Try Streamlit secrets first (multiple methods)
-try:
-    # Method 1: Direct access
-    if hasattr(st, 'secrets') and "OPENAI_API_KEY" in st.secrets:
-        current_api_key = st.secrets["OPENAI_API_KEY"]
-        api_key_source = "Streamlit secrets (direct)"
-    # Method 2: Try get method
-    elif hasattr(st, 'secrets'):
-        current_api_key = st.secrets.get("OPENAI_API_KEY")
-        if current_api_key:
-            api_key_source = "Streamlit secrets (get method)"
-        else:
-            raise KeyError("Not found in secrets")
-    else:
-        raise KeyError("Streamlit secrets not available")
-        
-except (KeyError, FileNotFoundError, AttributeError) as e:
-    # Fall back to environment variables
-    current_api_key = os.getenv("OPENAI_API_KEY")
-    if current_api_key:
-        api_key_source = "Environment variable (.env)"
-    else:
-        api_key_source = f"Not found (secrets error: {str(e)})"
+# Get the API key using centralized function
+current_api_key, api_key_source = get_api_key()
 
 # Debug info
 with st.sidebar:
@@ -381,7 +389,15 @@ if submitted:
         
         # Show loading spinner
         with st.spinner("🤖 AI is creating your personalized workout plan..."):
-            workout_plan = generate_workout_plan(user_data, current_api_key)
+            # Get fresh API key for generation
+            generation_api_key, generation_source = get_api_key()
+            
+            st.info(f"🔄 Generating plan with API key from: **{generation_source}**")
+            if generation_api_key and len(generation_api_key) > 14:
+                key_preview = f"{generation_api_key[:10]}...{generation_api_key[-4:]}"
+                st.info(f"🔑 Using key: {key_preview} (Length: {len(generation_api_key)})")
+            
+            workout_plan = generate_workout_plan(user_data, generation_api_key)
         
         # Display the generated plan
         st.success("🎉 Your personalized workout plan is ready!")
