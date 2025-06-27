@@ -257,10 +257,60 @@ st.title("🏋️ AI Fitness Coach")
 st.markdown("Get your personalized workout plan powered by AI!")
 
 # Get the API key from Streamlit secrets or environment variables
+current_api_key = None
+api_key_source = "unknown"
+
+# Try Streamlit secrets first (multiple methods)
 try:
-    current_api_key = st.secrets["OPENAI_API_KEY"]
-except (KeyError, FileNotFoundError):
+    # Method 1: Direct access
+    if hasattr(st, 'secrets') and "OPENAI_API_KEY" in st.secrets:
+        current_api_key = st.secrets["OPENAI_API_KEY"]
+        api_key_source = "Streamlit secrets (direct)"
+    # Method 2: Try get method
+    elif hasattr(st, 'secrets'):
+        current_api_key = st.secrets.get("OPENAI_API_KEY")
+        if current_api_key:
+            api_key_source = "Streamlit secrets (get method)"
+        else:
+            raise KeyError("Not found in secrets")
+    else:
+        raise KeyError("Streamlit secrets not available")
+        
+except (KeyError, FileNotFoundError, AttributeError) as e:
+    # Fall back to environment variables
     current_api_key = os.getenv("OPENAI_API_KEY")
+    if current_api_key:
+        api_key_source = "Environment variable (.env)"
+    else:
+        api_key_source = f"Not found (secrets error: {str(e)})"
+
+# Debug info
+with st.sidebar:
+    st.markdown("### 🔧 Debug Info")
+    
+    if current_api_key:
+        st.success(f"🔑 **API Key Status:** Found")
+        st.info(f"📍 **Source:** {api_key_source}")
+        # Show partial key for verification
+        if len(current_api_key) > 14:
+            key_preview = f"{current_api_key[:10]}...{current_api_key[-4:]}"
+            st.code(f"Key preview: {key_preview}")
+            st.caption(f"Length: {len(current_api_key)} characters")
+    else:
+        st.error(f"❌ **API Key Status:** Not found")
+        st.warning(f"📍 **Last checked:** {api_key_source}")
+    
+    # Streamlit secrets debugging
+    st.markdown("#### 🔍 Secrets Debug")
+    try:
+        if hasattr(st, 'secrets'):
+            available_secrets = list(st.secrets.keys()) if hasattr(st.secrets, 'keys') else "Cannot list keys"
+            st.write(f"**Available secrets:** {available_secrets}")
+            st.write(f"**Has OPENAI_API_KEY:** {'OPENAI_API_KEY' in st.secrets}")
+        else:
+            st.write("**Streamlit secrets:** Not available")
+    except Exception as e:
+        st.write(f"**Secrets error:** {str(e)}")
 
 unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
