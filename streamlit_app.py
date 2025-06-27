@@ -147,8 +147,8 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     # Calculate nutrition targets
     nutrition_data = calculate_target_calories_and_macros(user_data)
     
-    # Convert equipment list to string
-    equipment = ", ".join(user_data['equip']) if user_data['equip'] else "No equipment specified"
+    # Get training environment preference
+    environment = user_data['environment']
     
     # Convert training style list to string
     training_styles = ", ".join(user_data['style']) if user_data['style'] else "No specific style"
@@ -178,8 +178,8 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     - Target Carbohydrates: {nutrition_data['carb_grams']}g ({nutrition_data['carb_calories']} calories)
     - Target Fats: {nutrition_data['fat_grams']}g ({nutrition_data['fat_calories']} calories)
 
-    EQUIPMENT & PREFERENCES:
-    - Available Equipment: {equipment}
+    TRAINING PREFERENCES:
+    - Preferred Training Environment: {environment}
     - Training Style Preferences: {training_styles}
     - Diet Style: {user_data['diet']}
 
@@ -192,9 +192,14 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
 
     1. COMPLETE 7-DAY WORKOUT PLAN:
        - MANDATORY: Provide a full week (7 days) of workouts with specific training for each day
+       - IMPORTANT: Design all workouts based on the preferred training environment ({environment})
+         * If "Gym": Include gym equipment (barbells, dumbbells, machines, cables, etc.)
+         * If "Home": Focus on bodyweight, resistance bands, and minimal equipment exercises
+         * If "Both": Provide alternatives for both gym and home settings
        - For each workout day, include:
          * Complete exercise list with EXACT sets, reps, and rest periods (e.g., "3 sets x 8-10 reps, 90 seconds rest")
          * Specific weight/intensity recommendations when applicable
+         * Exercise alternatives based on environment preference
          * Detailed warm-up routine (5-10 minutes)
          * Cool-down and stretching routine (5-10 minutes)
        - For rest days, include active recovery activities
@@ -271,7 +276,7 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
                     "content": prompt
                 }
             ],
-            max_tokens=10000,
+            max_completion_tokens=10000,
             temperature=0.5
         )
         
@@ -338,22 +343,26 @@ unit = st.radio("Units", ["Imperial", "Metric"], horizontal=True)
 
 with st.form("intake"):
     name  = st.text_input("Name")
-    email = st.text_input("Email for delivery")
     age   = st.number_input("Age", 13, 80, step=1)
 
     sex   = st.radio("Sex", ["Male", "Female", "Other"], horizontal=True)
 
     if unit == "Imperial":
-        height = st.number_input("Height (inches)")
-        weight = st.number_input("Weight (lbs)")
+        col1, col2 = st.columns(2)
+        with col1:
+            feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
+        with col2:
+            inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
+        height = feet * 12 + inches  # Convert to total inches
+        weight = st.number_input("Weight (lbs)", min_value=50, max_value=500, value=150, step=1)
     else:
-        height = st.number_input("Height (cm)")
-        weight = st.number_input("Weight (kg)")
+        height = st.number_input("Height (cm)", min_value=120, max_value=250, value=170, step=1)
+        weight = st.number_input("Weight (kg)", min_value=30, max_value=200, value=70, step=1)
 
     goal     = st.selectbox("Primary goal", ["Lose fat", "Build muscle", "Re-comp", "General health"])
     level    = st.radio("Training experience", ["Beginner", "Intermediate", "Advanced"], horizontal=True)
     days     = st.slider("Training days per week", 2, 7, 4)
-    equip    = st.multiselect("Equipment available", ["Body-weight", "Bands", "DBs", "Barbell", "Machines"])
+    environment = st.radio("Preferred training environment", ["Gym", "Home", "Both"], horizontal=True)
     diet     = st.selectbox("Diet style", ["Omnivore", "Vegetarian", "Vegan", "Keto", "None"])
     issues   = st.text_area("Allergies / injuries (optional)")
 
@@ -374,15 +383,14 @@ with st.form("intake"):
 # Handle form submission
 if submitted:
     # Validate required fields
-    if not name or not email or not age or not height or not weight:
-        st.error("Please fill in all required fields (Name, Email, Age, Height, Weight)")
+    if not name or not age or not height or not weight:
+        st.error("Please fill in all required fields (Name, Age, Height, Weight)")
     elif not current_api_key:
         st.error("🔑 **OpenAI API Key Required!** Please set your API key in Streamlit Cloud secrets. Go to your app settings → Secrets tab → Add: `OPENAI_API_KEY = \"your-api-key-here\"`")
     else:
         # Prepare user data
         user_data = {
             'name': name,
-            'email': email,
             'age': age,
             'sex': sex,
             'height': height,
@@ -391,7 +399,7 @@ if submitted:
             'goal': goal,
             'level': level,
             'days': days,
-            'equip': equip,
+            'environment': environment,
             'diet': diet,
             'issues': issues,
             'activity': activity,
@@ -504,7 +512,7 @@ if submitted:
                 st.write(f"**Experience Level:** {level}")
                 st.write(f"**Activity Level:** {activity}")
                 st.write(f"**Diet Style:** {diet}")
-                st.write(f"**Available Equipment:** {', '.join(equip) if equip else 'None specified'}")
+                st.write(f"**Training Environment:** {environment}")
                 if style:
                     st.write(f"**Training Style:** {', '.join(style)}")
             
