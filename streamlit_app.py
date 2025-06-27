@@ -16,9 +16,24 @@ def check_payment_status():
     
     # Method 1: Check URL parameters (from Stripe redirect)
     query_params = st.query_params
-    if "payment_success" in query_params and query_params["payment_success"] == "true":
-        st.session_state.paid_user = True
-        return True
+    
+    # Debug: Show current URL parameters (remove in production)
+    if query_params:
+        st.sidebar.write("Debug - URL params:", dict(query_params))
+    
+    # Check for various success parameters that Stripe might send
+    success_indicators = [
+        "payment_success",
+        "success", 
+        "payment_intent",
+        "session_id"
+    ]
+    
+    for param in success_indicators:
+        if param in query_params:
+            st.session_state.paid_user = True
+            st.sidebar.success(f"Payment detected via {param}")
+            return True
     
     # Method 2: Check session state (persistent during session)
     if st.session_state.get("paid_user", False):
@@ -48,23 +63,38 @@ def show_paywall():
         ✅ Professional-grade programming  
         
         **One-time payment • Instant access**
+        
+        *Click the button below to securely pay with Stripe. You'll be redirected back here after payment.*
         """)
         
         # Payment button that redirects to Stripe
         stripe_link = "https://buy.stripe.com/test_28EdRafeoe2SfeKbOd6AM0f"
         
-        if st.button("🚀 Get FitKit Pro Access", use_container_width=True, type="primary"):
-            # Redirect to Stripe with return URL that includes success parameter
-            success_url = "https://fitkit.streamlit.app/?payment_success=true"
-            st.markdown(f'<meta http-equiv="refresh" content="0; url={stripe_link}">', unsafe_allow_html=True)
-            st.link_button("Complete Payment", stripe_link, use_container_width=True)
+        # Use st.link_button for direct redirect to Stripe
+        st.link_button(
+            "🚀 Get FitKit Pro Access", 
+            stripe_link, 
+            use_container_width=True,
+            type="primary"
+        )
+        
+        # Alternative: Direct link for users if button doesn't work
+        st.markdown(f"**Having trouble?** [Click here to pay directly]({stripe_link})")
+        
+        st.info("💡 **After payment:** You'll be redirected back to this page with full access!")
         
         # For testing purposes - remove in production
         st.markdown("---")
         st.caption("**For Testing Only:**")
-        if st.button("🧪 Test Access (Remove in Production)", use_container_width=True):
-            st.session_state.manual_override = True
-            st.rerun()
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("🧪 Test Access", use_container_width=True):
+                st.session_state.manual_override = True
+                st.rerun()
+        with col_b:
+            if st.button("✅ I Just Paid", use_container_width=True):
+                st.session_state.paid_user = True
+                st.rerun()
 
 def get_api_key():
     """Get API key from Streamlit secrets or environment variables."""
