@@ -5,10 +5,6 @@ import re
 from typing import Dict, Any
 from dotenv import load_dotenv
 from mailersend import emails
-import gspread
-from google.oauth2.service_account import Credentials
-import json
-from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,133 +18,6 @@ def validate_email(email):
     """Validate email format using regex."""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
-
-def get_google_sheets_client():
-    """Initialize Google Sheets client using service account credentials."""
-    try:
-        # Get credentials from Streamlit secrets
-        credentials_info = st.secrets.get("GOOGLE_SHEETS_CREDENTIALS", os.getenv("GOOGLE_SHEETS_CREDENTIALS"))
-        if not credentials_info:
-            return None
-        
-        # Parse credentials if it's a string
-        if isinstance(credentials_info, str):
-            credentials_info = json.loads(credentials_info)
-        
-        # Define the scope
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive"
-        ]
-        
-        # Create credentials object
-        credentials = Credentials.from_service_account_info(credentials_info, scopes=scope)
-        
-        # Initialize gspread client
-        client = gspread.authorize(credentials)
-        return client
-        
-    except Exception as e:
-        st.error(f"Error initializing Google Sheets: {e}")
-        return None
-
-def save_review_to_sheets(email, sex, age, stars, review_text):
-    """Save review data to Google Sheets."""
-    try:
-        client = get_google_sheets_client()
-        if not client:
-            st.warning("⚠️ Review system temporarily unavailable.")
-            return False
-        
-        # Get the spreadsheet (you'll need to create this and share it with the service account)
-        sheet_id = st.secrets.get("GOOGLE_SHEET_ID", os.getenv("GOOGLE_SHEET_ID"))
-        if not sheet_id:
-            st.warning("⚠️ Review system not configured.")
-            return False
-        
-        spreadsheet = client.open_by_key(sheet_id)
-        worksheet = spreadsheet.sheet1  # Use the first sheet
-        
-        # Prepare the row data
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        row_data = [timestamp, email, sex, age, stars, review_text]
-        
-        # Add the row to the sheet
-        worksheet.append_row(row_data)
-        
-        return True
-        
-    except Exception as e:
-        st.error(f"Error saving review: {e}")
-        return False
-
-def show_review_modal(user_data, workout_plan):
-    """Show review modal and handle submission."""
-    # Initialize session state for review modal
-    if 'show_review_modal' not in st.session_state:
-        st.session_state.show_review_modal = False
-    if 'review_submitted' not in st.session_state:
-        st.session_state.review_submitted = False
-    
-    # Review modal container
-    if st.session_state.show_review_modal and not st.session_state.review_submitted:
-        with st.container():
-            st.markdown("---")
-            st.markdown("### 🌟 We Appreciate Your Feedback!")
-            st.markdown("*Please leave a quick review before downloading your plan*")
-            
-            # Star rating
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                st.markdown("**Rating:**")
-            with col2:
-                stars = st.select_slider(
-                    "",
-                    options=[1, 2, 3, 4, 5],
-                    value=5,
-                    format_func=lambda x: "⭐" * x
-                )
-            
-            # Review text
-            review_text = st.text_area(
-                "Tell us about your experience:",
-                placeholder="What did you think of FitKit? Any suggestions?",
-                height=100
-            )
-            
-            # Submit button
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if st.button("✅ Submit & Download", type="primary", use_container_width=True):
-                    # Save review to Google Sheets
-                    success = save_review_to_sheets(
-                        user_data['email'],
-                        user_data['sex'],
-                        user_data['age'],
-                        stars,
-                        review_text
-                    )
-                    
-                    if success:
-                        st.session_state.review_submitted = True
-                        st.success("🎉 Thank you for your feedback!")
-                        st.rerun()
-                    else:
-                        st.error("Failed to save review. Please try again.")
-    
-    # Show download button after review is submitted
-    if st.session_state.review_submitted:
-        st.markdown("---")
-        st.download_button(
-            label="📥 Download Your Complete Plan",
-            data=workout_plan,
-            file_name=f"{user_data['email'].replace('@', '_').replace('.', '_')}_complete_fitness_plan.txt",
-            mime="text/plain",
-            type="primary"
-        )
-        st.success("✨ Enjoy your personalized FitKit plan!")
-    
-    return st.session_state.review_submitted
 
 def send_confirmation_email(user_email, user_data):
     """Send confirmation email using MailerSend."""
@@ -752,48 +621,12 @@ with st.form("intake"):
     dislikes = st.text_input("Food dislikes (optional)")
     medical  = st.text_area("Medical conditions / medications (optional)")
     
-    # Disclaimer box with improved typography
+    # Disclaimer checkbox
     st.markdown("---")
-    with st.container():
-        st.markdown("""
-        <div style="
-            background-color: #f8f9fa;
-            border-left: 4px solid #ffc107;
-            padding: 20px;
-            margin: 10px 0;
-            border-radius: 5px;
-            font-size: 14px;
-            line-height: 1.6;
-        ">
-            <h4 style="color: #856404; margin-top: 0; margin-bottom: 15px;">
-                ⚠️ Important Disclaimer
-            </h4>
-            
-            <p style="margin-bottom: 12px;">
-                <strong>Results not guaranteed:</strong> Individual results may vary based on adherence, genetics, and lifestyle factors.
-            </p>
-            
-            <p style="margin-bottom: 12px;">
-                <strong>Educational purposes only:</strong> This is not medical advice or professional training guidance.
-            </p>
-            
-            <p style="margin-bottom: 12px;">
-                <strong>Consult professionals:</strong> Always consult with a healthcare provider before starting any new exercise or nutrition program.
-            </p>
-            
-            <p style="margin-bottom: 12px;">
-                <strong>Use at your own risk:</strong> You assume full responsibility for your health and safety.
-            </p>
-            
-            <p style="margin-bottom: 15px;">
-                <strong>Fair use policy:</strong> This tool is for personal use only, not for commercial redistribution.
-            </p>
-            
-            <p style="margin-bottom: 0; font-style: italic; color: #6c757d;">
-                By proceeding, you acknowledge you've read and agree to these terms.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    disclaimer_agreed = st.checkbox(
+        "⚠️ I understand this is for educational purposes only, not medical advice. I will consult healthcare professionals before starting any new program and use this at my own risk.",
+        help="Click to agree to terms and enable plan generation"
+    )
 
     submitted = st.form_submit_button("Generate my plan")
 
@@ -804,6 +637,8 @@ if submitted:
         st.error("Please fill in all required fields (Email, Age, Height, Weight)")
     elif not validate_email(email):
         st.error("Please enter a valid email address (e.g., user@example.com)")
+    elif not disclaimer_agreed:
+        st.error("⚠️ Please agree to the disclaimer terms to continue")
     elif not current_api_key:
         st.error("🔑 **OpenAI API Key Required!** Please set your API key in Streamlit Cloud secrets. Go to your app settings → Secrets tab → Add: `OPENAI_API_KEY = \"your-api-key-here\"`")
     else:
@@ -853,14 +688,16 @@ if submitted:
             st.markdown("### Your AI-Generated Workout & Nutrition Plan")
             st.markdown(workout_plan)
         
-        # Show review system and download after plan is complete
+        # Show download button after plan is complete
         if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
-            # Trigger review modal
-            if 'show_review_modal' not in st.session_state:
-                st.session_state.show_review_modal = True
-            
-            # Show review modal and handle download
-            show_review_modal(user_data, workout_plan)
+            st.markdown("---")
+            st.download_button(
+                label="📥 Download Your Complete Plan",
+                data=workout_plan,
+                file_name=f"{email.replace('@', '_').replace('.', '_')}_complete_fitness_plan.txt",
+                mime="text/plain",
+                type="primary"
+            )
         
         with tab2:
             st.markdown("### 🎯 Your Personalized Nutrition Targets")
