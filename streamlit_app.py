@@ -680,24 +680,10 @@ def show_review_popup():
                 
                 # Store review
                 if store_review_to_jsonbin(review_data):
-                    st.success("🎉 **Thank you for your review!** Your download is starting...")
+                    st.success("🎉 **Thank you for your review!** Your download is ready below.")
                     st.session_state.review_submitted = True
                     st.session_state.show_review_popup = False
                     st.balloons()
-                    
-                    # Trigger download
-                    workout_plan = st.session_state.get('workout_plan', '')
-                    user_name = st.session_state.get('user_name', 'user')
-                    
-                    if workout_plan:
-                        st.download_button(
-                            label="📥 Download Your Complete Plan",
-                            data=workout_plan,
-                            file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
-                            mime="text/plain",
-                            type="primary",
-                            key="download_after_review"
-                        )
                 else:
                     st.error("❌ Failed to submit review. You can still download your plan below.")
                     st.session_state.show_review_popup = False
@@ -705,28 +691,12 @@ def show_review_popup():
             elif skip_review:
                 st.info("⏭️ Review skipped. Your download is ready below.")
                 st.session_state.show_review_popup = False
+                st.session_state.review_skipped = True
                 
             elif cancel:
                 st.session_state.show_review_popup = False
-                st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # If review submitted or skipped, show download button
-        if not st.session_state.show_review_popup:
-            st.markdown("---")
-            workout_plan = st.session_state.get('workout_plan', '')
-            user_name = st.session_state.get('user_name', 'user')
-            
-            if workout_plan:
-                st.download_button(
-                    label="📥 Download Your Complete Plan",
-                    data=workout_plan,
-                    file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
-                    mime="text/plain",
-                    type="primary",
-                    key="final_download"
-                )
 
 # Streamlit App Title
 st.title("🎯 Goals need Plans")
@@ -895,25 +865,29 @@ if submitted:
             if 'review_submitted' not in st.session_state:
                 st.session_state.review_submitted = False
             
-            # Show popup or download button based on state
-            if st.session_state.show_review_popup:
-                show_review_popup()
-            else:
+            if 'review_skipped' not in st.session_state:
+                st.session_state.review_skipped = False
+            
+            # Show popup or download button based on review status
+            if not st.session_state.show_review_popup and not st.session_state.review_submitted:
                 # Show the trigger button for popup
                 if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
                     st.session_state.show_review_popup = True
-                    st.rerun()
-                
-                # If review was already submitted, also show direct download
-                if st.session_state.review_submitted:
-                    st.download_button(
-                        label="📥 Download Your Complete Plan (Direct)",
-                        data=workout_plan,
-                        file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
-                        mime="text/plain",
-                        type="secondary",
-                        key="direct_download"
-                    )
+            
+            # Show popup if triggered
+            if st.session_state.show_review_popup:
+                show_review_popup()
+            
+            # If review was submitted or skipped, show direct download
+            if not st.session_state.show_review_popup and (st.session_state.review_submitted or st.session_state.get('review_skipped', False)):
+                st.download_button(
+                    label="📥 Download Your Complete Plan",
+                    data=workout_plan,
+                    file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
+                    mime="text/plain",
+                    type="primary",
+                    key="final_download"
+                )
         
         with tab2:
             st.markdown("### 🎯 Your Personalized Nutrition Targets")
@@ -1005,9 +979,7 @@ if submitted:
                 if medical:
                     st.write(f"**Medical Conditions:** {medical}")
 
-        # Show review popup if triggered (outside of tabs)
-        if st.session_state.get('show_review_popup', False):
-            show_review_popup()
+
 
 # Add footer
 st.markdown("---")
