@@ -578,15 +578,16 @@ def store_review_to_jsonbin(review_data):
             st.error("❌ JSONBin credentials not found in secrets")
             return False
         
-        # Prepare headers
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Master-Key': master_key
-        }
-        
         # Add timestamp and unique ID to review
         review_data['timestamp'] = datetime.now().isoformat()
-        review_data['review_id'] = str(uuid.uuid4())[:8]  # Short ID for easier tracking
+        review_data['review_id'] = str(uuid.uuid4())[:8]
+        
+        # Prepare headers for JSONBin v3 API
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Master-Key': master_key,
+            'X-Bin-Meta': 'false'
+        }
         
         # Read existing data first
         read_url = f'https://api.jsonbin.io/v3/b/{bin_id}/latest'
@@ -607,13 +608,13 @@ def store_review_to_jsonbin(review_data):
         update_response = requests.put(
             update_url,
             headers=headers,
-            data=json.dumps(existing_data)
+            json=existing_data  # Use json parameter instead of data
         )
         
         if update_response.status_code == 200:
             return True
         else:
-            st.error(f"❌ Failed to store review: {update_response.status_code}")
+            st.error(f"❌ Failed to store review: {update_response.status_code} - {update_response.text}")
             return False
             
     except Exception as e:
@@ -622,81 +623,80 @@ def store_review_to_jsonbin(review_data):
 
 def show_review_popup():
     """Show the popup review modal"""
-    if 'show_review_popup' not in st.session_state:
-        st.session_state.show_review_popup = False
+    # Create a popup-like container
+    st.markdown("---")
+    st.markdown('<div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 2px solid #1f77b4;">', unsafe_allow_html=True)
     
-    if st.session_state.show_review_popup:
-        # Create a popup-like container
-        st.markdown("---")
-        st.markdown('<div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 2px solid #1f77b4;">', unsafe_allow_html=True)
+    st.markdown("### 💬 Quick Review - Help Us Improve!")
+    st.info("📝 **Your feedback matters!** Please share your experience to help us make FitKit better for everyone.")
+    
+    # Review form
+    with st.form("popup_review_form", clear_on_submit=False):
+        col1, col2 = st.columns([1, 1])
         
-        st.markdown("### 💬 Quick Review - Help Us Improve!")
-        st.info("📝 **Your feedback matters!** Please share your experience to help us make FitKit better for everyone.")
-        
-        # Review form
-        with st.form("popup_review_form", clear_on_submit=False):
-            col1, col2 = st.columns([1, 1])
-            
-            with col1:
-                nickname = st.text_input(
-                    "👤 Nickname",
-                    placeholder="e.g. FitGuru, HealthyJoe, etc.",
-                    help="How should we display your review? (Optional - will show as 'Anonymous' if empty)"
-                )
-            
-            with col2:
-                rating = st.select_slider(
-                    "⭐ Rating",
-                    options=[1, 2, 3, 4, 5],
-                    value=5,
-                    format_func=lambda x: "⭐" * x + f" ({x}/5)"
-                )
-            
-            review_text = st.text_area(
-                "💭 Your Review",
-                placeholder="What did you think of your FitKit plan? Any suggestions for improvement?",
-                help="Share your honest feedback - it helps us improve!",
-                height=100
+        with col1:
+            nickname = st.text_input(
+                "👤 Nickname",
+                placeholder="e.g. FitGuru, HealthyJoe, etc.",
+                help="How should we display your review? (Optional - will show as 'Anonymous' if empty)"
             )
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                submit_review = st.form_submit_button("✅ Submit & Download", type="primary")
-            with col2:
-                skip_review = st.form_submit_button("⏭️ Skip & Download")
-            with col3:
-                cancel = st.form_submit_button("❌ Cancel")
-            
-            if submit_review:
-                # Prepare review data
-                review_data = {
-                    'nickname': nickname if nickname.strip() else 'Anonymous',
-                    'rating': rating,
-                    'review_text': review_text,
-                    'user_goal': st.session_state.get('user_goal', ''),
-                    'user_level': st.session_state.get('user_level', ''),
-                    'user_environment': st.session_state.get('user_environment', '')
-                }
-                
-                # Store review
-                if store_review_to_jsonbin(review_data):
-                    st.success("🎉 **Thank you for your review!** Your download is ready below.")
-                    st.session_state.review_submitted = True
-                    st.session_state.show_review_popup = False
-                    st.balloons()
-                else:
-                    st.error("❌ Failed to submit review. You can still download your plan below.")
-                    st.session_state.show_review_popup = False
-                    
-            elif skip_review:
-                st.info("⏭️ Review skipped. Your download is ready below.")
-                st.session_state.show_review_popup = False
-                st.session_state.review_skipped = True
-                
-            elif cancel:
-                st.session_state.show_review_popup = False
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            rating = st.select_slider(
+                "⭐ Rating",
+                options=[1, 2, 3, 4, 5],
+                value=5,
+                format_func=lambda x: "⭐" * x + f" ({x}/5)"
+            )
+        
+        review_text = st.text_area(
+            "💭 Your Review",
+            placeholder="What did you think of your FitKit plan? Any suggestions for improvement?",
+            help="Share your honest feedback - it helps us improve!",
+            height=100
+        )
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            submit_review = st.form_submit_button("✅ Submit & Download", type="primary")
+        with col2:
+            skip_review = st.form_submit_button("⏭️ Skip & Download")
+        with col3:
+            cancel = st.form_submit_button("❌ Cancel")
+        
+        if submit_review:
+            # Prepare review data
+            review_data = {
+                'nickname': nickname if nickname.strip() else 'Anonymous',
+                'rating': rating,
+                'review_text': review_text,
+                'user_goal': st.session_state.get('user_goal', ''),
+                'user_level': st.session_state.get('user_level', ''),
+                'user_environment': st.session_state.get('user_environment', '')
+            }
+            
+            # Store review
+            if store_review_to_jsonbin(review_data):
+                st.success("🎉 **Thank you for your review!** Your download is ready below.")
+                st.balloons()
+            else:
+                st.error("❌ Failed to submit review. You can still download your plan below.")
+            
+            st.session_state.review_submitted = True
+            st.session_state.show_review_popup = False
+            st.rerun()
+                
+        elif skip_review:
+            st.info("⏭️ Review skipped. Your download is ready below.")
+            st.session_state.show_review_popup = False
+            st.session_state.review_skipped = True
+            st.rerun()
+            
+        elif cancel:
+            st.session_state.show_review_popup = False
+            st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Streamlit App Title
 st.title("🎯 Goals need Plans")
@@ -961,22 +961,19 @@ if st.session_state.get('plan_generated', False) and st.session_state.get('worko
     if 'review_skipped' not in st.session_state:
         st.session_state.review_skipped = False
     
-    # Show popup or download button based on review status
-    if not st.session_state.show_review_popup and not st.session_state.review_submitted and not st.session_state.review_skipped:
-        # Show the trigger button for popup
-        if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
-            st.session_state.show_review_popup = True
+    # Get workout plan data
+    workout_plan = st.session_state.get('workout_plan', '')
+    user_name = st.session_state.get('user_name', 'user')
     
     # Show popup if triggered
     if st.session_state.show_review_popup:
         show_review_popup()
     
-    # If review was submitted or skipped, show direct download
-    if not st.session_state.show_review_popup and (st.session_state.review_submitted or st.session_state.review_skipped):
-        workout_plan = st.session_state.get('workout_plan', '')
-        user_name = st.session_state.get('user_name', 'user')
-        
+    # Show download button if review completed OR show trigger button
+    elif st.session_state.review_submitted or st.session_state.review_skipped:
+        # Direct download after review/skip
         if workout_plan:
+            st.success("✅ **Your download is ready!**")
             st.download_button(
                 label="📥 Download Your Complete Plan",
                 data=workout_plan,
@@ -985,6 +982,11 @@ if st.session_state.get('plan_generated', False) and st.session_state.get('worko
                 type="primary",
                 key="final_download"
             )
+    else:
+        # Show the trigger button for popup
+        if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
+            st.session_state.show_review_popup = True
+            st.rerun()
 
 # Add footer
 st.markdown("---")
