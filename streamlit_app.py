@@ -18,6 +18,21 @@ client = None
 
 # Paywall functions removed - now running in free mode for testing
 
+# At the top after imports, add URL parameter detection
+st.set_page_config(page_title="🎯 Goals need Plans", page_icon="🎯", layout="wide")
+
+# Check URL parameters to detect return from Stripe payment
+query_params = st.query_params
+paid_user = query_params.get("paid") == "true"
+
+# Store payment status in session state
+if paid_user:
+    st.session_state.payment_completed = True
+
+# Initialize payment status - set to paid by default
+if 'payment_completed' not in st.session_state:
+    st.session_state.payment_completed = True
+
 def validate_email(email):
     """Validate email format using regex."""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -489,8 +504,8 @@ def create_workout_prompt(user_data: Dict[str, Any]) -> str:
     
     return prompt
 
-def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
-    """Generate workout plan using OpenAI API."""
+def generate_workout_plan(user_data: Dict[str, Any], api_key: str, streaming_placeholder=None) -> str:
+    """Generate workout plan using OpenAI API with optional streaming display."""
     try:
         # Validate API key before using
         if not api_key:
@@ -504,8 +519,7 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         
         prompt = create_workout_prompt(user_data)
         
-        # Create a placeholder for streaming content
-        response_placeholder = st.empty()
+        # Initialize response
         full_response = ""
         
         # Stream the response for faster user experience
@@ -530,10 +544,28 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 full_response += chunk.choices[0].delta.content
-                response_placeholder.markdown(full_response + "▌")  # Show cursor while typing
+                
+                # Update the streaming placeholder if provided
+                if streaming_placeholder:
+                    streaming_placeholder.markdown(
+                        f"""
+                        <div style="
+                            background-color: #f0f2f6; 
+                            padding: 20px; 
+                            border-radius: 10px; 
+                            border: 1px solid #ddd;
+                            height: 400px;
+                            overflow-y: auto;
+                            font-family: monospace;
+                            white-space: pre-wrap;
+                        ">
+                        <strong>🤖 Your plan is being generated live:</strong><br/><br/>
+                        {full_response}▌
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
         
-        # Clear the streaming placeholder when done
-        response_placeholder.empty()
         return full_response
         
     except Exception as e:
@@ -753,49 +785,6 @@ st.markdown("""
 ---
 """)
 
-# Simple Stripe payment integration
-stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment-link")
-
-st.markdown("### 💳 **Get Your Personalized FitKit Plan**")
-st.info("🎯 **One-time payment of $9.99** gives you lifetime access to unlimited personalized fitness plans!")
-
-# Create a proper link button that opens in new tab
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.markdown(
-        f"""
-        <div style="text-align: center; margin: 20px 0;">
-            <a href="{stripe_link}" target="_blank" style="
-                background-color: #4CAF50;
-                color: white;
-                padding: 15px 30px;
-                text-decoration: none;
-                border-radius: 8px;
-                font-size: 18px;
-                font-weight: bold;
-                display: inline-block;
-                border: none;
-                cursor: pointer;
-                transition: background-color 0.3s;
-            ">
-                🚀 Get FitKit for $9.99
-            </a>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
-
-st.markdown("---")
-st.markdown("*💡 After payment, return to this page to generate your plans!*")
-
-# Temporary access for testing (remove this section once Stripe is working)
-st.markdown("### 🧪 **Testing Mode**")
-if st.checkbox("🔓 Enable testing mode (temporary)"):
-    st.success("✅ **Testing mode enabled!** You can now generate plans below.")
-    testing_mode = True
-else:
-    testing_mode = False
-
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
 
@@ -862,8 +851,6 @@ if submitted:
         st.error("Please fill in all required fields (Name, Age, Height, Weight)")
     elif not disclaimer_agreed:
         st.error("⚠️ Please agree to the disclaimer terms to continue")
-    elif not testing_mode:
-        st.error("🔒 **Payment Required!** Please complete payment above or enable testing mode to generate your plan.")
     elif not current_api_key:
         st.error("🔑 **OpenAI API Key Required!** Please set your API key in Streamlit Cloud secrets. Go to your app settings → Secrets tab → Add: `OPENAI_API_KEY = \"your-api-key-here\"`")
     else:
@@ -889,171 +876,251 @@ if submitted:
             'add_abs': add_abs
         }
         
-        # Show loading message for streaming
-        st.info("🤖 **AI is creating your personalized workout plan...** (streaming live)")
+        # Create a large text area to show streaming
+        st.markdown("### 🤖 **AI is creating your personalized workout plan...**")
+        streaming_container = st.container()
+        
+        with streaming_container:
+            # Create a text area that will show the streaming content
+            streaming_placeholder = st.empty()
+            
+            with streaming_placeholder:
+                st.text_area(
+                    "Your plan is being generated:",
+                    value="🔄 Analyzing your fitness profile...\n🔄 Calculating optimal workout structure...\n🔄 Customizing exercises for your goals...",
+                    height=400,
+                    disabled=True,
+                    key="streaming_preview"
+                )
         
         # Get fresh API key for generation
         generation_api_key, generation_source = get_api_key()
         
-        workout_plan = generate_workout_plan(user_data, generation_api_key)
+        # Generate the workout plan
+        workout_plan = generate_workout_plan(user_data, generation_api_key, streaming_placeholder)
         
-        # Display success message after streaming is complete
+        # Show the complete plan with blur effect for non-paid users
         if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
-            st.success("🎉 Your personalized FitKit is ready!")
+            # Clear the streaming placeholder and show final result
+            streaming_placeholder.empty()
             
-            # Send confirmation email (disabled for now)
-            # send_confirmation_email(name, user_data)
-        
-        # Calculate nutrition data for display
-        nutrition_data = calculate_target_calories_and_macros(user_data)
-        
-        # Create tabs for better organization
-        tab1, tab2, tab3 = st.tabs(["📋 Complete Plan", "🍎 Nutrition Targets", "📊 Your Profile"])
-        
-        with tab1:
-            st.markdown("### Your AI-Generated Workout & Nutrition Plan")
-            st.markdown(workout_plan)
-        
-        # Show download button after plan is complete
-        if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
-            # Store data in session state for the popup
+            # Show complete plan with conditional blur
+            if st.session_state.payment_completed:
+                # Show unblurred for paid users
+                st.markdown(
+                    f"""
+                    <div style="
+                        background-color: #f0f2f6; 
+                        padding: 20px; 
+                        border-radius: 10px; 
+                        border: 1px solid #ddd;
+                        height: 400px;
+                        overflow-y: auto;
+                        font-family: monospace;
+                        white-space: pre-wrap;
+                    ">
+                    <strong>✅ Your complete personalized FitKit plan:</strong><br/><br/>
+                    {workout_plan}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                # Show blurred for free users (the devious part!)
+                st.markdown(
+                    f"""
+                    <div style="
+                        position: relative;
+                        background-color: #f0f2f6; 
+                        padding: 20px; 
+                        border-radius: 10px; 
+                        border: 1px solid #ddd;
+                        height: 400px;
+                        overflow-y: auto;
+                        font-family: monospace;
+                        white-space: pre-wrap;
+                        filter: blur(3px);
+                        pointer-events: none;
+                    ">
+                    <strong>🔒 Your complete personalized FitKit plan:</strong><br/><br/>
+                    {workout_plan}
+                    </div>
+                    <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background: rgba(255,255,255,0.95);
+                        padding: 20px;
+                        border-radius: 10px;
+                        text-align: center;
+                        border: 2px solid #4CAF50;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                        z-index: 1000;
+                    ">
+                        <h3 style="color: #333; margin: 0;">🔒 Plan Ready - Payment Required!</h3>
+                        <p style="color: #666; margin: 10px 0;">Your amazing plan is complete but locked</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            
+            # Wait a moment for them to see it, then show the paywall OR download if paid
+            st.success("🎉 **Your personalized FitKit is ready!**")
+            
+            # Check if user has already paid
+            if st.session_state.payment_completed:
+                # Show unblurred plan and download button for paid users
+                st.markdown("---")
+                st.success("🎉 **Thank you for your purchase! Your plan is ready to download.**")
+                
+                # Show download button with review option
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.download_button(
+                        label="📥 Download Your Complete FitKit Plan",
+                        data=workout_plan,
+                        file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
+                        mime="text/plain",
+                        type="primary",
+                        key="paid_download"
+                    )
+                with col2:
+                    if st.button("💬 Leave a Review", key="review_button"):
+                        st.session_state.show_review_popup = True
+                        st.rerun()
+                
+                # Show nutrition data for paid users
+                nutrition_data = calculate_target_calories_and_macros(user_data)
+                
+                # Create tabs for better organization
+                tab1, tab2 = st.tabs(["🍎 Nutrition Targets", "📊 Your Profile"])
+                
+                with tab1:
+                    st.markdown("### 🎯 Your Personalized Nutrition Targets")
+                    
+                    # Calorie breakdown
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("🔥 Target Calories", f"{nutrition_data['target_calories']:,}")
+                        st.caption(f"BMR: {nutrition_data['bmr']:,} | TDEE: {nutrition_data['tdee']:,}")
+                    
+                    with col2:
+                        st.metric("💪 Protein", f"{nutrition_data['protein_grams']}g")
+                        st.caption(f"{nutrition_data['protein_calories']} calories")
+                    
+                    with col3:
+                        st.metric("🍞 Carbs", f"{nutrition_data['carb_grams']}g")
+                        st.caption(f"{nutrition_data['carb_calories']} calories")
+                    
+                    # Fat in a separate row for better spacing
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("🥑 Fats", f"{nutrition_data['fat_grams']}g")
+                        st.caption(f"{nutrition_data['fat_calories']} calories")
+                
+                with tab2:
+                    st.markdown("### Your Fitness Profile")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.metric("Age", f"{age} years")
+                        st.metric("Height", f"{height} {'in' if unit == 'Imperial' else 'cm'}")
+                        st.metric("Weight", f"{weight} {'lbs' if unit == 'Imperial' else 'kg'}")
+                        st.metric("Training Days", f"{days} per week")
+                    
+                    with col2:
+                        st.write(f"**Primary Goal:** {goal}")
+                        st.write(f"**Experience Level:** {level}")
+                        st.write(f"**Activity Level:** {activity}")
+                        st.write(f"**Training Environment:** {environment}")
+                        if style:
+                            st.write(f"**Training Style:** {', '.join(style)}")
+            
+            else:
+                # THE DEVIOUS PAYWALL - blur the content and demand payment
+                st.markdown("---")
+            
+            # Blur overlay with payment requirement
+            base_stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment-link")
+            # Add return URL parameter to redirect back with paid=true
+            current_url = "https://fitkit-app.streamlit.app"  # Replace with your actual Streamlit app URL
+            return_url = f"{current_url}?paid=true"
+            # Note: You'll need to configure this return URL in your Stripe payment settings
+            stripe_link = base_stripe_link
+            
+            st.markdown(
+                f"""
+                <div style="
+                    position: relative;
+                    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,240,240,0.95));
+                    padding: 40px;
+                    border-radius: 15px;
+                    text-align: center;
+                    border: 3px solid #4CAF50;
+                    margin: 20px 0;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                ">
+                    <h2 style="color: #333; margin-bottom: 20px;">🔒 **Unlock Your Complete FitKit Plan**</h2>
+                    <p style="font-size: 18px; color: #666; margin-bottom: 30px;">
+                        You've seen how personalized and detailed your plan is!<br/>
+                        <strong>Get lifetime access to download and keep this plan forever.</strong>
+                    </p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                        <h3 style="color: #4CAF50; margin: 0;">✨ What You Get:</h3>
+                        <ul style="text-align: left; display: inline-block; margin: 15px 0;">
+                            <li>📋 Your complete 7-day workout plan</li>
+                            <li>🍎 Personalized nutrition targets & macros</li>
+                            <li>📈 4-week progression system</li>
+                            <li>🧠 Psychology & mindset strategies</li>
+                            <li>💾 Download & keep forever</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="margin: 30px 0;">
+                        <a href="{stripe_link}" target="_blank" style="
+                            background: linear-gradient(135deg, #4CAF50, #45a049);
+                            color: white;
+                            padding: 20px 40px;
+                            text-decoration: none;
+                            border-radius: 12px;
+                            font-size: 20px;
+                            font-weight: bold;
+                            display: inline-block;
+                            border: none;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+                        ">
+                            🚀 Get Your FitKit - Only $9.99
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 14px; color: #888; margin-top: 20px;">
+                        💡 One-time payment • Lifetime access • 30-day money-back guarantee<br/>
+                        <em>After payment, you'll be redirected back here with full access!</em>
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Store data in session state for after payment
             st.session_state.workout_plan = workout_plan
             st.session_state.user_name = name
             st.session_state.user_goal = goal
             st.session_state.user_level = level
             st.session_state.user_environment = environment
             st.session_state.plan_generated = True
-        
-        with tab2:
-            st.markdown("### 🎯 Your Personalized Nutrition Targets")
             
-            # Calorie breakdown
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("🔥 Target Calories", f"{nutrition_data['target_calories']:,}")
-                st.caption(f"BMR: {nutrition_data['bmr']:,} | TDEE: {nutrition_data['tdee']:,}")
-            
-            with col2:
-                st.metric("💪 Protein", f"{nutrition_data['protein_grams']}g")
-                st.caption(f"{nutrition_data['protein_calories']} calories")
-            
-            with col3:
-                st.metric("🍞 Carbs", f"{nutrition_data['carb_grams']}g")
-                st.caption(f"{nutrition_data['carb_calories']} calories")
-            
-            # Fat in a separate row for better spacing
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("🥑 Fats", f"{nutrition_data['fat_grams']}g")
-                st.caption(f"{nutrition_data['fat_calories']} calories")
-            
-            # Macro breakdown chart
-            st.markdown("#### 📊 Macro Distribution")
-            macro_data = {
-                'Macronutrient': ['Protein', 'Carbs', 'Fats'],
-                'Grams': [nutrition_data['protein_grams'], nutrition_data['carb_grams'], nutrition_data['fat_grams']],
-                'Calories': [nutrition_data['protein_calories'], nutrition_data['carb_calories'], nutrition_data['fat_calories']]
-            }
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.bar_chart(dict(zip(macro_data['Macronutrient'], macro_data['Grams'])))
-                st.caption("Macronutrients in Grams")
-            
-            with col2:
-                st.bar_chart(dict(zip(macro_data['Macronutrient'], macro_data['Calories'])))
-                st.caption("Macronutrients in Calories")
-            
-            # Goal-specific advice
-            st.markdown("#### 🎯 Goal-Specific Nutrition Tips")
-            if goal == "Lose fat":
-                st.info("💡 **Fat Loss Focus**: You're in a 500-calorie deficit. Prioritize protein to maintain muscle mass while losing fat. Consider eating protein at every meal.")
-            elif goal == "Build muscle":
-                st.info("💡 **Muscle Building Focus**: You're in a 300-calorie surplus. Focus on post-workout nutrition and spread protein throughout the day for optimal muscle protein synthesis.")
-            elif goal == "Re-comp":
-                st.info("💡 **Body Recomposition**: You're eating at maintenance. Focus on nutrient timing - more carbs around workouts, adequate protein throughout the day.")
-            else:
-                st.info("💡 **General Health**: You're in a slight deficit for overall health. Focus on nutrient-dense whole foods and consistent meal timing.")
-            
-            # Diet-specific notes
-            if diet == "Keto":
-                st.warning("🥑 **Keto Diet**: Your macros are adjusted for ketosis (70% fat, 25% protein, 5% carbs). Focus on healthy fats and time your small carb intake around workouts.")
-            elif diet == "Vegan":
-                st.success("🌱 **Vegan Diet**: Focus on complete proteins (quinoa, hemp, soy) and B12 supplementation. Consider plant-based protein powder to meet targets.")
-            elif diet == "Vegetarian":
-                st.success("🥛 **Vegetarian Diet**: Include eggs, dairy, and legumes for complete proteins. Greek yogurt and cottage cheese are excellent protein sources.")
-        
-        with tab3:
-            st.markdown("### Your Fitness Profile")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric("Age", f"{age} years")
-                st.metric("Height", f"{height} {'in' if unit == 'Imperial' else 'cm'}")
-                st.metric("Weight", f"{weight} {'lbs' if unit == 'Imperial' else 'kg'}")
-                st.metric("Training Days", f"{days} per week")
-                st.metric("Add Cardio", add_cardio)
-                st.metric("Add Ab Circuit", add_abs)
-            
-            with col2:
-                st.write(f"**Primary Goal:** {goal}")
-                st.write(f"**Experience Level:** {level}")
-                st.write(f"**Activity Level:** {activity}")
-                st.write(f"**Diet Style:** {diet}")
-                st.write(f"**Training Environment:** {environment}")
-                if style:
-                    st.write(f"**Training Style:** {', '.join(style)}")
-            
-            # Additional info if provided
-            if issues or dislikes or medical:
-                st.markdown("#### 📝 Additional Considerations")
-                if issues:
-                    st.write(f"**Allergies/Injuries:** {issues}")
-                if dislikes:
-                    st.write(f"**Food Dislikes:** {dislikes}")
-                if medical:
-                    st.write(f"**Medical Conditions:** {medical}")
+            # Calculate nutrition data for display
+            nutrition_data = calculate_target_calories_and_macros(user_data)
+            st.session_state.nutrition_data = nutrition_data
 
-# Download section - outside the form submission block
-if st.session_state.get('plan_generated', False) and st.session_state.get('workout_plan'):
-    st.markdown("---")
-    
-    # Initialize session state variables
-    if 'show_review_popup' not in st.session_state:
-        st.session_state.show_review_popup = False
-    
-    if 'review_submitted' not in st.session_state:
-        st.session_state.review_submitted = False
-    
-    if 'review_skipped' not in st.session_state:
-        st.session_state.review_skipped = False
-    
-    # Get workout plan data
-    workout_plan = st.session_state.get('workout_plan', '')
-    user_name = st.session_state.get('user_name', 'user')
-    
-    # Show popup if triggered
-    if st.session_state.show_review_popup:
-        show_review_popup()
-    
-    # Show download button if review completed OR show trigger button
-    elif st.session_state.review_submitted or st.session_state.review_skipped:
-        # Direct download after review/skip
-        if workout_plan:
-            st.success("✅ **Your download is ready!**")
-            st.download_button(
-                label="📥 Download Your Complete Plan",
-                data=workout_plan,
-                file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
-                mime="text/plain",
-                type="primary",
-                key="final_download"
-            )
-    else:
-        # Show the trigger button for popup
-        if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
-            st.session_state.show_review_popup = True
-            st.rerun()
+# Handle review popup if triggered (for paid users)
+if st.session_state.get('show_review_popup', False):
+    show_review_popup()
 
 # Add footer
 st.markdown("---")
