@@ -759,11 +759,31 @@ stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment
 st.markdown("### 💳 **Get Your Personalized FitKit Plan**")
 st.info("🎯 **One-time payment of $9.99** gives you lifetime access to unlimited personalized fitness plans!")
 
+# Create a proper link button that opens in new tab
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    if st.button("🚀 **Get FitKit for $9.99**", type="primary", use_container_width=True):
-        st.markdown(f'<meta http-equiv="refresh" content="0; url={stripe_link}">', unsafe_allow_html=True)
-        st.success("🔄 Redirecting to secure payment...")
+    st.markdown(
+        f"""
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="{stripe_link}" target="_blank" style="
+                background-color: #4CAF50;
+                color: white;
+                padding: 15px 30px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: bold;
+                display: inline-block;
+                border: none;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            ">
+                🚀 Get FitKit for $9.99
+            </a>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 st.markdown("---")
 st.markdown("*💡 After payment, return to this page to generate your plans!*")
