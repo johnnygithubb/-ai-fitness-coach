@@ -855,39 +855,7 @@ if submitted:
             st.session_state.user_goal = goal
             st.session_state.user_level = level
             st.session_state.user_environment = environment
-            
-            st.markdown("---")
-            
-            # Check if review popup should be shown
-            if 'show_review_popup' not in st.session_state:
-                st.session_state.show_review_popup = False
-            
-            if 'review_submitted' not in st.session_state:
-                st.session_state.review_submitted = False
-            
-            if 'review_skipped' not in st.session_state:
-                st.session_state.review_skipped = False
-            
-            # Show popup or download button based on review status
-            if not st.session_state.show_review_popup and not st.session_state.review_submitted:
-                # Show the trigger button for popup
-                if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
-                    st.session_state.show_review_popup = True
-            
-            # Show popup if triggered
-            if st.session_state.show_review_popup:
-                show_review_popup()
-            
-            # If review was submitted or skipped, show direct download
-            if not st.session_state.show_review_popup and (st.session_state.review_submitted or st.session_state.get('review_skipped', False)):
-                st.download_button(
-                    label="📥 Download Your Complete Plan",
-                    data=workout_plan,
-                    file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
-                    mime="text/plain",
-                    type="primary",
-                    key="final_download"
-                )
+            st.session_state.plan_generated = True
         
         with tab2:
             st.markdown("### 🎯 Your Personalized Nutrition Targets")
@@ -979,7 +947,44 @@ if submitted:
                 if medical:
                     st.write(f"**Medical Conditions:** {medical}")
 
-
+# Download section - outside the form submission block
+if st.session_state.get('plan_generated', False) and st.session_state.get('workout_plan'):
+    st.markdown("---")
+    
+    # Initialize session state variables
+    if 'show_review_popup' not in st.session_state:
+        st.session_state.show_review_popup = False
+    
+    if 'review_submitted' not in st.session_state:
+        st.session_state.review_submitted = False
+    
+    if 'review_skipped' not in st.session_state:
+        st.session_state.review_skipped = False
+    
+    # Show popup or download button based on review status
+    if not st.session_state.show_review_popup and not st.session_state.review_submitted and not st.session_state.review_skipped:
+        # Show the trigger button for popup
+        if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
+            st.session_state.show_review_popup = True
+    
+    # Show popup if triggered
+    if st.session_state.show_review_popup:
+        show_review_popup()
+    
+    # If review was submitted or skipped, show direct download
+    if not st.session_state.show_review_popup and (st.session_state.review_submitted or st.session_state.review_skipped):
+        workout_plan = st.session_state.get('workout_plan', '')
+        user_name = st.session_state.get('user_name', 'user')
+        
+        if workout_plan:
+            st.download_button(
+                label="📥 Download Your Complete Plan",
+                data=workout_plan,
+                file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
+                mime="text/plain",
+                type="primary",
+                key="final_download"
+            )
 
 # Add footer
 st.markdown("---")
