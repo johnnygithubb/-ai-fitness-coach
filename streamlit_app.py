@@ -700,7 +700,7 @@ def show_review_popup():
 
 # Streamlit App Title
 st.title("🎯 Goals need Plans")
-st.markdown('<h2 style="text-align: center; color: #1f77b4; margin-bottom: 30px;">FitKit - Your Ultra Personalized Fitness & Nutrition BluePrint</h2>', unsafe_allow_html=True)
+st.markdown('<h2 style="text-align: center; color: white; margin-bottom: 30px;">FitKit - Your Ultra Personalized Fitness & Nutrition BluePrint</h2>', unsafe_allow_html=True)
 
 st.markdown("""
 ### 📦 **What's Included**
