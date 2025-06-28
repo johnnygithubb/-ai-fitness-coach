@@ -9,7 +9,6 @@ import requests
 import json
 import uuid
 from datetime import datetime
-from st_paywall import add_auth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -754,20 +753,28 @@ st.markdown("""
 ---
 """)
 
-# Add Stripe paywall
-add_auth(
-    required=False,  # Temporarily disable to debug - change back to True once Stripe is configured
-    show_redirect_button=True,
-    subscription_button_text="🚀 Get Your FitKit Plan - $9.99",
-    button_color="#4CAF50",  # Green button
-    use_sidebar=False  # Show button in main section
-)
+# Simple Stripe payment integration
+stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment-link")
 
-# Check if user is subscribed
-if st.session_state.get('user_subscribed', False):
-    st.success("✅ **Welcome back!** You have premium access to FitKit.")
+st.markdown("### 💳 **Get Your Personalized FitKit Plan**")
+st.info("🎯 **One-time payment of $9.99** gives you lifetime access to unlimited personalized fitness plans!")
+
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("🚀 **Get FitKit for $9.99**", type="primary", use_container_width=True):
+        st.markdown(f'<meta http-equiv="refresh" content="0; url={stripe_link}">', unsafe_allow_html=True)
+        st.success("🔄 Redirecting to secure payment...")
+
+st.markdown("---")
+st.markdown("*💡 After payment, return to this page to generate your plans!*")
+
+# Temporary access for testing (remove this section once Stripe is working)
+st.markdown("### 🧪 **Testing Mode**")
+if st.checkbox("🔓 Enable testing mode (temporary)"):
+    st.success("✅ **Testing mode enabled!** You can now generate plans below.")
+    testing_mode = True
 else:
-    st.info("👋 **Welcome to FitKit!** Subscribe above to generate your personalized fitness plan.")
+    testing_mode = False
 
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
@@ -835,6 +842,8 @@ if submitted:
         st.error("Please fill in all required fields (Name, Age, Height, Weight)")
     elif not disclaimer_agreed:
         st.error("⚠️ Please agree to the disclaimer terms to continue")
+    elif not testing_mode:
+        st.error("🔒 **Payment Required!** Please complete payment above or enable testing mode to generate your plan.")
     elif not current_api_key:
         st.error("🔑 **OpenAI API Key Required!** Please set your API key in Streamlit Cloud secrets. Go to your app settings → Secrets tab → Add: `OPENAI_API_KEY = \"your-api-key-here\"`")
     else:
