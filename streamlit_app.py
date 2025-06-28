@@ -8,7 +8,7 @@ from mailersend import emails
 import requests
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,6 +24,7 @@ st.set_page_config(page_title="🎯 Goals need Plans", page_icon="🎯", layout=
 # Check URL parameters to detect return from Stripe payment
 query_params = st.query_params
 paid_user = query_params.get("paid") == "true"
+session_id = query_params.get("session_id")
 
 # Store payment status in session state
 if paid_user:
@@ -32,6 +33,17 @@ if paid_user:
 # Initialize payment status - set to paid by default
 if 'payment_completed' not in st.session_state:
     st.session_state.payment_completed = True
+
+# Generate or restore session ID
+if 'user_session_id' not in st.session_state:
+    if session_id:
+        # Returning from Stripe with session ID
+        st.session_state.user_session_id = session_id
+        # Try to restore user data from storage
+        restore_user_session(session_id)
+    else:
+        # New session - generate unique ID
+        st.session_state.user_session_id = str(uuid.uuid4())[:12]
 
 def validate_email(email):
     """Validate email format using regex."""
@@ -755,6 +767,99 @@ def show_review_popup():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+def save_user_session(session_id, user_data, workout_plan):
+    """Save user session data to JSONBin for restoration after Stripe payment."""
+    try:
+        # Get JSONBin credentials
+        master_key = st.secrets.get("JSONBIN_MASTER_KEY", os.getenv("JSONBIN_MASTER_KEY"))
+        if not master_key:
+            return False
+        
+        # Create session data
+        session_data = {
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'user_data': user_data,
+            'workout_plan': workout_plan,
+            'nutrition_data': st.session_state.get('nutrition_data', {}),
+            'expires_at': (datetime.now() + timedelta(hours=24)).isoformat()  # Expire in 24 hours
+        }
+        
+        # Store in JSONBin
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Master-Key': master_key,
+            'X-Bin-Meta': 'false'
+        }
+        
+        create_url = 'https://api.jsonbin.io/v3/b'
+        response = requests.post(create_url, headers=headers, json=session_data)
+        
+        if response.status_code == 200:
+            # Store the bin ID for this session
+            bin_data = response.json()
+            st.session_state.session_bin_id = bin_data.get('metadata', {}).get('id')
+            return True
+        
+        return False
+        
+    except Exception as e:
+        st.error(f"Error saving session: {str(e)}")
+        return False
+
+def restore_user_session(session_id):
+    """Restore user session data from JSONBin after Stripe return."""
+    try:
+        st.info(f"🔄 Restoring session {session_id}...")
+        
+        # Get JSONBin credentials
+        master_key = st.secrets.get("JSONBIN_MASTER_KEY", os.getenv("JSONBIN_MASTER_KEY"))
+        if not master_key:
+            st.error("❌ No JSONBin master key found for session restoration")
+            return False
+        
+        # For simplicity, we'll store the session data in a predictable bin ID
+        # In production, you'd have a proper database lookup
+        # For now, let's try to restore from session state if it exists
+        
+        # Check if we have session data stored
+        if hasattr(st.session_state, 'session_bin_id') and st.session_state.session_bin_id:
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Master-Key': master_key,
+                'X-Bin-Meta': 'false'
+            }
+            
+            read_url = f'https://api.jsonbin.io/v3/b/{st.session_state.session_bin_id}/latest'
+            response = requests.get(read_url, headers=headers)
+            
+            if response.status_code == 200:
+                session_data = response.json().get('record', {})
+                
+                # Restore session state
+                if session_data.get('session_id') == session_id:
+                    st.session_state.workout_plan = session_data.get('workout_plan', '')
+                    st.session_state.nutrition_data = session_data.get('nutrition_data', {})
+                    
+                    # Restore user data
+                    user_data = session_data.get('user_data', {})
+                    st.session_state.user_name = user_data.get('name', 'User')
+                    st.session_state.user_goal = user_data.get('goal', '')
+                    st.session_state.user_level = user_data.get('level', '')
+                    st.session_state.user_environment = user_data.get('environment', '')
+                    st.session_state.plan_generated = True
+                    
+                    st.success(f"✅ Session {session_id} restored successfully!")
+                    return True
+        
+        # If no stored session found, show message
+        st.warning(f"⚠️ Could not restore session {session_id}. You may need to regenerate your plan.")
+        return False
+        
+    except Exception as e:
+        st.error(f"❌ Error restoring session: {str(e)}")
+        return False
+
 # Streamlit App Title
 st.title("🎯 Goals need Plans")
 st.markdown('<h2 style="text-align: center; color: white; margin-bottom: 30px;">FitKit - Your Ultra Personalized Fitness & Nutrition BluePrint</h2>', unsafe_allow_html=True)
@@ -1043,11 +1148,15 @@ if submitted:
             
             # Blur overlay with payment requirement
             base_stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment-link")
-            # Add return URL parameter to redirect back with paid=true
+            # Add return URL parameter to redirect back with paid=true and session_id
             current_url = "https://fitkit-app.streamlit.app"  # Replace with your actual Streamlit app URL
-            return_url = f"{current_url}?paid=true"
+            session_id = st.session_state.user_session_id
+            return_url = f"{current_url}?paid=true&session_id={session_id}"
             # Note: You'll need to configure this return URL in your Stripe payment settings
             stripe_link = base_stripe_link
+            
+            st.info(f"🔑 **Session ID:** `{session_id}` (for debugging)")
+            st.info(f"🔗 **Return URL:** `{return_url}`")
             
             st.markdown(
                 f"""
@@ -1117,6 +1226,17 @@ if submitted:
             # Calculate nutrition data for display
             nutrition_data = calculate_target_calories_and_macros(user_data)
             st.session_state.nutrition_data = nutrition_data
+            
+            # Save session data for Stripe return
+            session_saved = save_user_session(
+                st.session_state.user_session_id, 
+                user_data, 
+                workout_plan
+            )
+            if session_saved:
+                st.success("💾 Session saved for payment processing")
+            else:
+                st.warning("⚠️ Could not save session - you may need to regenerate after payment")
 
 # Handle review popup if triggered (for paid users)
 if st.session_state.get('show_review_popup', False):
