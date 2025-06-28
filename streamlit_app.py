@@ -5,6 +5,10 @@ import re
 from typing import Dict, Any
 from dotenv import load_dotenv
 from mailersend import emails
+import requests
+import json
+import uuid
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -563,29 +567,195 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
         else:
             return f"Error generating workout plan: {error_msg}\n\nPlease check your OpenAI API key and try again."
 
+def store_review_to_jsonbin(review_data):
+    """Store review data to JSONBin.io"""
+    try:
+        # Get credentials from Streamlit secrets
+        master_key = st.secrets.get("JSONBIN_MASTER_KEY", os.getenv("JSONBIN_MASTER_KEY"))
+        bin_id = st.secrets.get("JSONBIN_BIN_ID", os.getenv("JSONBIN_BIN_ID"))
+        
+        if not master_key or not bin_id:
+            st.error("❌ JSONBin credentials not found in secrets")
+            return False
+        
+        # Prepare headers
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Master-Key': master_key
+        }
+        
+        # Add timestamp and unique ID to review
+        review_data['timestamp'] = datetime.now().isoformat()
+        review_data['review_id'] = str(uuid.uuid4())[:8]  # Short ID for easier tracking
+        
+        # Read existing data first
+        read_url = f'https://api.jsonbin.io/v3/b/{bin_id}/latest'
+        read_response = requests.get(read_url, headers=headers)
+        
+        if read_response.status_code == 200:
+            existing_data = read_response.json().get('record', [])
+            if not isinstance(existing_data, list):
+                existing_data = []
+        else:
+            existing_data = []
+        
+        # Append new review
+        existing_data.append(review_data)
+        
+        # Update the bin with new data
+        update_url = f'https://api.jsonbin.io/v3/b/{bin_id}'
+        update_response = requests.put(
+            update_url,
+            headers=headers,
+            data=json.dumps(existing_data)
+        )
+        
+        if update_response.status_code == 200:
+            return True
+        else:
+            st.error(f"❌ Failed to store review: {update_response.status_code}")
+            return False
+            
+    except Exception as e:
+        st.error(f"❌ Error storing review: {str(e)}")
+        return False
+
+def show_review_popup():
+    """Show the popup review modal"""
+    if 'show_review_popup' not in st.session_state:
+        st.session_state.show_review_popup = False
+    
+    if st.session_state.show_review_popup:
+        # Create a popup-like container
+        st.markdown("---")
+        st.markdown('<div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; border: 2px solid #1f77b4;">', unsafe_allow_html=True)
+        
+        st.markdown("### 💬 Quick Review - Help Us Improve!")
+        st.info("📝 **Your feedback matters!** Please share your experience to help us make FitKit better for everyone.")
+        
+        # Review form
+        with st.form("popup_review_form", clear_on_submit=False):
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                nickname = st.text_input(
+                    "👤 Nickname",
+                    placeholder="e.g. FitGuru, HealthyJoe, etc.",
+                    help="How should we display your review? (Optional - will show as 'Anonymous' if empty)"
+                )
+            
+            with col2:
+                rating = st.select_slider(
+                    "⭐ Rating",
+                    options=[1, 2, 3, 4, 5],
+                    value=5,
+                    format_func=lambda x: "⭐" * x + f" ({x}/5)"
+                )
+            
+            review_text = st.text_area(
+                "💭 Your Review",
+                placeholder="What did you think of your FitKit plan? Any suggestions for improvement?",
+                help="Share your honest feedback - it helps us improve!",
+                height=100
+            )
+            
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                submit_review = st.form_submit_button("✅ Submit & Download", type="primary")
+            with col2:
+                skip_review = st.form_submit_button("⏭️ Skip & Download")
+            with col3:
+                cancel = st.form_submit_button("❌ Cancel")
+            
+            if submit_review:
+                # Prepare review data
+                review_data = {
+                    'nickname': nickname if nickname.strip() else 'Anonymous',
+                    'rating': rating,
+                    'review_text': review_text,
+                    'user_goal': st.session_state.get('user_goal', ''),
+                    'user_level': st.session_state.get('user_level', ''),
+                    'user_environment': st.session_state.get('user_environment', '')
+                }
+                
+                # Store review
+                if store_review_to_jsonbin(review_data):
+                    st.success("🎉 **Thank you for your review!** Your download is starting...")
+                    st.session_state.review_submitted = True
+                    st.session_state.show_review_popup = False
+                    st.balloons()
+                    
+                    # Trigger download
+                    workout_plan = st.session_state.get('workout_plan', '')
+                    user_name = st.session_state.get('user_name', 'user')
+                    
+                    if workout_plan:
+                        st.download_button(
+                            label="📥 Download Your Complete Plan",
+                            data=workout_plan,
+                            file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
+                            mime="text/plain",
+                            type="primary",
+                            key="download_after_review"
+                        )
+                else:
+                    st.error("❌ Failed to submit review. You can still download your plan below.")
+                    st.session_state.show_review_popup = False
+                    
+            elif skip_review:
+                st.info("⏭️ Review skipped. Your download is ready below.")
+                st.session_state.show_review_popup = False
+                
+            elif cancel:
+                st.session_state.show_review_popup = False
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # If review submitted or skipped, show download button
+        if not st.session_state.show_review_popup:
+            st.markdown("---")
+            workout_plan = st.session_state.get('workout_plan', '')
+            user_name = st.session_state.get('user_name', 'user')
+            
+            if workout_plan:
+                st.download_button(
+                    label="📥 Download Your Complete Plan",
+                    data=workout_plan,
+                    file_name=f"{user_name.replace(' ', '_')}_complete_fitness_plan.txt",
+                    mime="text/plain",
+                    type="primary",
+                    key="final_download"
+                )
+
 # Streamlit App Title
-st.title("⚡️ FitKit")
+st.title("🎯 Goals need Plans")
+st.markdown('<h2 style="text-align: center; color: #1f77b4; margin-bottom: 30px;">FitKit - Your Ultra Personalized Fitness & Nutrition BluePrint</h2>', unsafe_allow_html=True)
+
 st.markdown("""
-**— your personal AI training blueprint.**
+### 📦 **What's Included**
+- 🏋️ **Complete 7-Day Workout Plan** — tailored to your environment & goals
+- 🍎 **Personalized Nutrition Guide** — exact meals, portions & timing
+- 📈 **4-Week Progression System** — never plateau again
 
-Drop your info, grab a plan, keep it forever. Simple.
+### ⚡ **How It Works**
+- 📝 **Answer Quick Questions** — your stats, goals & preferences  
+- 🤖 **AI Creates Your Plan** — personalized in under 60 seconds
+- 📥 **Download & Keep Forever** — no subscriptions, it's yours
 
-⸻
+### 🚀 **Why It's Amazing**
+- 🎯 **Built For YOU** — not generic cookie-cutter plans
+- 🧠 **Science-Based** — proven methods that actually work  
+- ⚡ **Zero Planning Time** — go from idea to action instantly
 
-**What it does:**
-- 🧠 Reads your stats and builds workouts + meals around you
-- 🔄 Updates as you progress—no more guess-work
-- ⏱ Cuts planning time to zero so you can focus on the grind
-- 💾 One download = lifetime access
+### 🎁 **Bonus Features**
+- 🧠 **Psychological Mastery** — mindset, motivation & habit formation strategies
+- 📊 **Exact Calories & Macros** — BMR, TDEE & precise nutritional breakdowns  
+- 💤 **Lifestyle Optimization** — sleep, stress management & recovery protocols
+- 🛡️ **Safety & Modifications** — injury prevention & exercise alternatives
+- 📈 **Plateau-Breaking Techniques** — advanced progression & auto-regulation methods
 
-⸻
-
-**Why tap in:**
-- Routines tailored for your goals, not a one-size list
-- Nutrition guidance that matches the plan
-- No subscriptions, no bloated apps—just your kit, on demand
-
-**Hit the quick quiz, claim your FitKit, and get moving.**
+---
 """)
 
 # Free access for testing - no paywall
@@ -709,14 +879,41 @@ if submitted:
         
         # Show download button after plan is complete
         if workout_plan and not workout_plan.startswith("❌") and not workout_plan.startswith("Error"):
+            # Store data in session state for the popup
+            st.session_state.workout_plan = workout_plan
+            st.session_state.user_name = name
+            st.session_state.user_goal = goal
+            st.session_state.user_level = level
+            st.session_state.user_environment = environment
+            
             st.markdown("---")
-            st.download_button(
-                label="📥 Download Your Complete Plan",
-                data=workout_plan,
-                file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
-                mime="text/plain",
-                type="primary"
-            )
+            
+            # Check if review popup should be shown
+            if 'show_review_popup' not in st.session_state:
+                st.session_state.show_review_popup = False
+            
+            if 'review_submitted' not in st.session_state:
+                st.session_state.review_submitted = False
+            
+            # Show popup or download button based on state
+            if st.session_state.show_review_popup:
+                show_review_popup()
+            else:
+                # Show the trigger button for popup
+                if st.button("📥 Download Your Complete Plan", type="primary", key="download_trigger"):
+                    st.session_state.show_review_popup = True
+                    st.rerun()
+                
+                # If review was already submitted, also show direct download
+                if st.session_state.review_submitted:
+                    st.download_button(
+                        label="📥 Download Your Complete Plan (Direct)",
+                        data=workout_plan,
+                        file_name=f"{name.replace(' ', '_')}_complete_fitness_plan.txt",
+                        mime="text/plain",
+                        type="secondary",
+                        key="direct_download"
+                    )
         
         with tab2:
             st.markdown("### 🎯 Your Personalized Nutrition Targets")
@@ -807,6 +1004,10 @@ if submitted:
                     st.write(f"**Food Dislikes:** {dislikes}")
                 if medical:
                     st.write(f"**Medical Conditions:** {medical}")
+
+        # Show review popup if triggered (outside of tabs)
+        if st.session_state.get('show_review_popup', False):
+            show_review_popup()
 
 # Add footer
 st.markdown("---")
