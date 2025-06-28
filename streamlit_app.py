@@ -1149,7 +1149,7 @@ if submitted:
             # Blur overlay with payment requirement
             base_stripe_link = st.secrets.get("stripe_link", "https://buy.stripe.com/your-payment-link")
             # Add return URL parameter to redirect back with paid=true and session_id
-            current_url = "https://fitkit-app.streamlit.app"  # Replace with your actual Streamlit app URL
+            current_url = "https://fitkit.streamlit.app"
             session_id = st.session_state.user_session_id
             return_url = f"{current_url}?paid=true&session_id={session_id}"
             # Note: You'll need to configure this return URL in your Stripe payment settings
