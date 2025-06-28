@@ -9,6 +9,7 @@ import requests
 import json
 import uuid
 from datetime import datetime
+from st_paywall import add_auth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -753,8 +754,20 @@ st.markdown("""
 ---
 """)
 
-# Free access for testing - no paywall
-st.success("🚀 **FitKit is now FREE for testing!** Generate your personalized fitness plan below.")
+# Add Stripe paywall
+add_auth(
+    required=True,  # Stop the app if user is not subscribed
+    show_redirect_button=True,
+    subscription_button_text="🚀 Get Your FitKit Plan - $9.99",
+    button_color="#4CAF50",  # Green button
+    use_sidebar=False  # Show button in main section
+)
+
+# Check if user is subscribed
+if st.session_state.get('user_subscribed', False):
+    st.success("✅ **Welcome back!** You have premium access to FitKit.")
+else:
+    st.info("👋 **Welcome to FitKit!** Subscribe above to generate your personalized fitness plan.")
 
 # Get the API key using centralized function
 current_api_key, api_key_source = get_api_key()
