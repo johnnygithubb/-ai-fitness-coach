@@ -756,7 +756,7 @@ st.markdown("""
 
 # Add Stripe paywall
 add_auth(
-    required=True,  # Stop the app if user is not subscribed
+    required=False,  # Temporarily disable to debug - change back to True once Stripe is configured
     show_redirect_button=True,
     subscription_button_text="🚀 Get Your FitKit Plan - $9.99",
     button_color="#4CAF50",  # Green button
