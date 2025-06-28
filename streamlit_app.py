@@ -568,55 +568,80 @@ def generate_workout_plan(user_data: Dict[str, Any], api_key: str) -> str:
             return f"Error generating workout plan: {error_msg}\n\nPlease check your OpenAI API key and try again."
 
 def store_review_to_jsonbin(review_data):
-    """Store review data to JSONBin.io"""
+    """Store review data to JSONBin.io - tries multiple methods"""
     try:
-        # Get credentials from Streamlit secrets
+        # Get all credentials from Streamlit secrets
         master_key = st.secrets.get("JSONBIN_MASTER_KEY", os.getenv("JSONBIN_MASTER_KEY"))
+        access_key = st.secrets.get("JSONBIN_ACCESS_KEY", os.getenv("JSONBIN_ACCESS_KEY"))
         bin_id = st.secrets.get("JSONBIN_BIN_ID", os.getenv("JSONBIN_BIN_ID"))
-        
-        if not master_key or not bin_id:
-            st.error("❌ JSONBin credentials not found in secrets")
-            return False
+        collection_id = st.secrets.get("JSONBIN_COLLECTION_ID", os.getenv("JSONBIN_COLLECTION_ID"))
         
         # Add timestamp and unique ID to review
         review_data['timestamp'] = datetime.now().isoformat()
         review_data['review_id'] = str(uuid.uuid4())[:8]
         
-        # Prepare headers for JSONBin v3 API
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Master-Key': master_key,
-            'X-Bin-Meta': 'false'
-        }
+        # Debug info
+        st.write(f"🔍 **Debug Info:**")
+        st.write(f"- Master Key: {'✅ Found' if master_key else '❌ Missing'}")
+        st.write(f"- Access Key: {'✅ Found' if access_key else '❌ Missing'}")
+        st.write(f"- Bin ID: {bin_id if bin_id else '❌ Missing'}")
+        st.write(f"- Collection ID: {collection_id if collection_id else '❌ Missing'}")
         
-        # Read existing data first
-        read_url = f'https://api.jsonbin.io/v3/b/{bin_id}/latest'
-        read_response = requests.get(read_url, headers=headers)
-        
-        if read_response.status_code == 200:
-            existing_data = read_response.json().get('record', [])
-            if not isinstance(existing_data, list):
-                existing_data = []
-        else:
-            existing_data = []
-        
-        # Append new review
-        existing_data.append(review_data)
-        
-        # Update the bin with new data
-        update_url = f'https://api.jsonbin.io/v3/b/{bin_id}'
-        update_response = requests.put(
-            update_url,
-            headers=headers,
-            json=existing_data  # Use json parameter instead of data
-        )
-        
-        if update_response.status_code == 200:
-            return True
-        else:
-            st.error(f"❌ Failed to store review: {update_response.status_code} - {update_response.text}")
-            return False
+        # Method 1: Try creating a new bin in the collection
+        if master_key and collection_id:
+            st.write("🔄 **Trying Method 1: Create new bin in collection...**")
             
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Master-Key': master_key,
+                'X-Collection-Id': collection_id
+            }
+            
+            create_url = 'https://api.jsonbin.io/v3/b'
+            create_response = requests.post(create_url, headers=headers, json=review_data)
+            
+            st.write(f"- Create Response: {create_response.status_code}")
+            if create_response.status_code == 200:
+                st.success("✅ **Method 1 worked!** Review stored in new bin within collection.")
+                return True
+            else:
+                st.write(f"- Error: {create_response.text}")
+        
+        # Method 2: Try updating existing bin
+        if master_key and bin_id:
+            st.write("🔄 **Trying Method 2: Update existing bin...**")
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Master-Key': master_key,
+                'X-Bin-Meta': 'false'
+            }
+            
+            read_url = f'https://api.jsonbin.io/v3/b/{bin_id}/latest'
+            read_response = requests.get(read_url, headers=headers)
+            
+            if read_response.status_code == 200:
+                existing_data = read_response.json().get('record', [])
+                if not isinstance(existing_data, list):
+                    existing_data = []
+            else:
+                existing_data = []
+            
+            existing_data.append(review_data)
+            
+            update_url = f'https://api.jsonbin.io/v3/b/{bin_id}'
+            update_response = requests.put(update_url, headers=headers, json=existing_data)
+            
+            st.write(f"- Update Response: {update_response.status_code}")
+            if update_response.status_code == 200:
+                st.success("✅ **Method 2 worked!** Review added to existing bin.")
+                return True
+            else:
+                st.write(f"- Error: {update_response.text}")
+        
+        st.error("❌ All methods failed. Check your JSONBin setup.")
+        return False
+        
     except Exception as e:
         st.error(f"❌ Error storing review: {str(e)}")
         return False
